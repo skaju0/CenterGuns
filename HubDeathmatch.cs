@@ -10,7 +10,7 @@ namespace HubDeathmatch;
 public class HubDeathmatch : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Aim + OnlyHS Menu Vote";
-    public override string ModuleVersion => "1.2.0";
+    public override string ModuleVersion => "1.3.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -19,6 +19,7 @@ public class HubDeathmatch : BasePlugin
 
     private bool _isOnlyHs = false;
     private bool _voteInProgress = false;
+    private bool _voteHasBeenExecuted = false;
     private int _voteYes = 0;
     private int _voteNo = 0;
     private readonly HashSet<ulong> _votedPlayers = new();
@@ -34,35 +35,75 @@ public class HubDeathmatch : BasePlugin
 
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
-        if (!_voteInProgress && _votedPlayers.Count == 0)
+        // Reset stanu głosowania po zmianie mapy
+        _voteHasBeenExecuted = false;
+        _voteInProgress = false;
+        _votedPlayers.Clear();
+
+        // Jeśli są już gracze na serwerze, odpal głosowanie po 2s
+        if (Utilities.GetPlayers().Any(p => p.IsValid && !p.IsBot))
         {
-            // Odraczamy otwarcie menu o 2 sekundy po starcie rundy, żeby gracz zdążył się załadować
             AddTimer(2.0f, StartOnlyHsMenuVote);
         }
+
+        return HookResult.Continue;
+    }
+
+    private HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
+    {
+        var player = @event.Userid;
+        if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
+
+        // Jeśli wejdziesz sam jako pierwszy gracz i głosowanie jeszcze się nie odbyło — odpal je od razu
+        if (!_voteInProgress && !_voteHasBeenExecuted)
+        {
+            AddTimer(1.5f, StartOnlyHsMenuVote);
+        }
+
+        // Ochrona startowa (GodMode) po odrodzeniu
+        var pawn = player.PlayerPawn.Value;
+        if (pawn != null && pawn.IsValid)
+        {
+            pawn.TakesDamage = false;
+            player.PrintToCenterHtml("<font color='#00FF00'><b>OCHRONA STARTOWA (2s)</b></font>");
+
+            AddTimer(ProtectionDuration, () =>
+            {
+                if (player.IsValid && player.PlayerPawn.Value != null)
+                {
+                    player.PlayerPawn.Value.TakesDamage = true;
+                }
+            });
+        }
+
         return HookResult.Continue;
     }
 
     private void StartOnlyHsMenuVote()
     {
+        if (_voteInProgress || _voteHasBeenExecuted) return;
+
         _voteInProgress = true;
+        _voteHasBeenExecuted = true;
         _voteYes = 0;
         _voteNo = 0;
         _votedPlayers.Clear();
 
         Server.PrintToChatAll($"{Prefix} Rozpoczęto głosowanie na tryb \x0C[ONLY HEADSHOT]\x01! Wybierz opcję z menu.");
 
-        // Tworzymy menu wyboru
+        // Tworzenie menu czatu CSSharp
         var voteMenu = new ChatMenu(" Czy włączyć tryb ONLY HEADSHOT? ");
         
         voteMenu.AddMenuOption("TAK (Only Headshot)", (player, option) => ProcessVote(player, true));
         voteMenu.AddMenuOption("NIE (Standardowe obrażenia)", (player, option) => ProcessVote(player, false));
 
-        // Wyświetlamy menu wszystkim graczom na serwerze
+        // Wyświetlanie menu wszystkim obecnym graczom
         foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
         {
             MenuManager.OpenChatMenu(player, voteMenu);
         }
 
+        // Czas na oddanie głosu: 15 sekund
         AddTimer(15.0f, FinishVote);
     }
 
@@ -86,7 +127,7 @@ public class HubDeathmatch : BasePlugin
     {
         _voteInProgress = false;
 
-        // Zamknięcie menu u graczy, którzy nie zagłosowali
+        // Zamknięcie aktywnego menu u wszystkich
         foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
         {
             MenuManager.CloseActiveMenu(player);
@@ -97,6 +138,7 @@ public class HubDeathmatch : BasePlugin
             _isOnlyHs = true;
             Server.PrintToChatAll($"{Prefix} Wynik głosowania: \x06TAK\x01 ({_voteYes} do {_voteNo}). Włączono tryb \x0C[ONLY HEADSHOT]\x01!");
             
+            // Cykliczne przypomnienie na czacie co 90 sekund
             _hsReminderTimer?.Kill();
             _hsReminderTimer = AddTimer(90.0f, () =>
             {
@@ -120,7 +162,7 @@ public class HubDeathmatch : BasePlugin
         var attacker = @event.Attacker;
         var victim = @event.Userid;
 
-        // Hitgroup 1 = Głowa
+        // Anulowanie obrażeń spoza głowy (Hitgroup 1 = Głowa)
         if (@event.Hitgroup != 1 && victim != null && victim.IsValid && victim.PlayerPawn.Value != null)
         {
             victim.PlayerPawn.Value.Health += @event.DmgHealth;
@@ -135,35 +177,14 @@ public class HubDeathmatch : BasePlugin
         return HookResult.Continue;
     }
 
-    private HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
-    {
-        var player = @event.Userid;
-        if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
-
-        var pawn = player.PlayerPawn.Value;
-        if (pawn != null && pawn.IsValid)
-        {
-            pawn.TakesDamage = false;
-            player.PrintToCenterHtml("<font color='#00FF00'><b>OCHRONA STARTOWA (2s)</b></font>");
-
-            AddTimer(ProtectionDuration, () =>
-            {
-                if (player.IsValid && player.PlayerPawn.Value != null)
-                {
-                    player.PlayerPawn.Value.TakesDamage = true;
-                }
-            });
-        }
-
-        return HookResult.Continue;
-    }
-
     private HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
     {
         var victim = @event.Userid;
 
+        // Sprzątanie broni leżących na ziemi
         Server.NextFrame(CleanDroppedWeapons);
 
+        // Instant Respawn (1s)
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
         {
             AddTimer(RespawnDelay, () =>
