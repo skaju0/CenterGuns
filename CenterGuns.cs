@@ -1,5 +1,6 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Menu;
 
 namespace CenterGuns;
@@ -16,15 +17,19 @@ public class CenterGuns : BasePlugin
     {
         AddCommand("css_guns", "Otwiera menu broni", OnGunsCommand);
         AddCommand("css_gun", "Otwiera menu broni", OnGunsCommand);
+    }
 
-        RegisterListener<Listeners.OnPlayerSpawn>(playerSlot =>
+    [GameEventHandler]
+    public HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
+    {
+        var player = @event.Userid;
+
+        if (player != null && player.IsValid && !player.IsBot)
         {
-            var player = Utilities.GetPlayerFromSlot(playerSlot);
-            if (player != null && player.IsValid && !player.IsBot)
-            {
-                OpenGunMenu(player);
-            }
-        });
+            OpenGunMenu(player);
+        }
+
+        return HookResult.Continue;
     }
 
     private void OnGunsCommand(CCSPlayerController? player, CounterStrikeSharp.API.Modules.Commands.CommandInfo info)
@@ -35,7 +40,6 @@ public class CenterGuns : BasePlugin
 
     private void OpenGunMenu(CCSPlayerController player)
     {
-        // Menu graficzne po lewej stronie (CenterHtmlMenu)
         var menu = new CenterHtmlMenu("Wybór Broni [1337HUB]", this);
 
         menu.AddMenuOption("AK-47 + Deagle", (p, opt) => GiveWeapons(p, "weapon_ak47", "weapon_deagle"));
