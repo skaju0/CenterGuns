@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "1.9.0";
+    public override string ModuleVersion => "1.9.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -65,7 +65,6 @@ public class OnlyHeadshot : BasePlugin
         int tCount = players.Count(p => p.TeamNum == (byte)CsTeam.Terrorist);
         int ctCount = players.Count(p => p.TeamNum == (byte)CsTeam.CounterTerrorist);
 
-        // Wrzuć do drużyny, w której jest mniej graczy
         CsTeam targetTeam = tCount <= ctCount ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
         player.ChangeTeam(targetTeam);
     }
@@ -133,7 +132,7 @@ public class OnlyHeadshot : BasePlugin
         {
             if (weapon.Value != null && weapon.Value.IsValid)
             {
-                weapon.Value.Remove();
+                weapon.Value.AcceptInput("Kill");
             }
         }
     }
@@ -314,7 +313,8 @@ public class OnlyHeadshot : BasePlugin
     {
         var victim = @event.Userid;
 
-        Server.NextFrame(CleanDroppedWeapons);
+        // Bezpieczne usuwanie broni z ziemi za pomocą AcceptInput
+        AddTimer(0.2f, CleanDroppedWeapons);
 
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
         {
@@ -337,15 +337,7 @@ public class OnlyHeadshot : BasePlugin
         {
             if (weapon.IsValid && weapon.OwnerEntity.Value == null)
             {
-                var weaponRef = weapon.EntityHandle;
-                AddTimer(0.1f, () =>
-                {
-                    var ent = weaponRef.Get();
-                    if (ent is CBasePlayerWeapon baseWeapon && baseWeapon.IsValid && baseWeapon.OwnerEntity.Value == null)
-                    {
-                        baseWeapon.Remove();
-                    }
-                });
+                weapon.AcceptInput("Kill");
             }
         }
     }
