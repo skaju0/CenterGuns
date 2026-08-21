@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "1.8.1";
+    public override string ModuleVersion => "1.8.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -303,6 +303,7 @@ public class OnlyHeadshot : BasePlugin
     {
         var victim = @event.Userid;
 
+        // Bezpieczne sprzątanie broni z opóźnieniem
         Server.NextFrame(CleanDroppedWeapons);
 
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
@@ -330,9 +331,9 @@ public class OnlyHeadshot : BasePlugin
                 AddTimer(0.1f, () =>
                 {
                     var ent = weaponRef.Get();
-                    if (ent is CBasePlayerWeapon baseWeapon && baseWeapon.IsValid && baseWeapon.OwnerEntity.Value == null)
+                    if (ent != null && ent.IsValid && ent.OwnerEntity.Value == null)
                     {
-                        baseWeapon.Remove();
+                        ent.Remove();
                     }
                 });
             }
