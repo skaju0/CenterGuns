@@ -8,7 +8,7 @@ namespace CenterGuns;
 public class CenterGuns : BasePlugin
 {
     public override string ModuleName => "Center Guns Menu";
-    public override string ModuleVersion => "1.0.2";
+    public override string ModuleVersion => "1.0.3";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Tag = " \u000B[1337HUB.PL]\u0001";
@@ -40,21 +40,23 @@ public class CenterGuns : BasePlugin
 
     private void OpenGunMenu(CCSPlayerController player)
     {
-        // Użycie ChatMenu z opcją cyfrową (wybór bezpośrednio klawiszami 1-9)
-        var menu = new ChatMenu("Wybór Broni [1337HUB]");
+        // Tworzenie menu w ramce HTML z obsługą cyfr
+        var menu = new CenterHtmlMenu("Wybór Broni [1337HUB]", this);
 
-        menu.AddMenuOption("AK-47 + Deagle", (p, opt) => GiveWeapons(p, "weapon_ak47", "weapon_deagle"));
-        menu.AddMenuOption("M4A1-S + USP", (p, opt) => GiveWeapons(p, "weapon_m4a1_silencer", "weapon_usp_silencer"));
-        menu.AddMenuOption("M4A4 + USP", (p, opt) => GiveWeapons(p, "weapon_m4a1", "weapon_usp_silencer"));
-        menu.AddMenuOption("AWP + Deagle", (p, opt) => GiveWeapons(p, "weapon_awp", "weapon_deagle"));
+        menu.AddMenuOption("1. AK-47 + Deagle", (p, opt) => GiveWeapons(p, "weapon_ak47", "weapon_deagle"));
+        menu.AddMenuOption("2. M4A1-S + USP", (p, opt) => GiveWeapons(p, "weapon_m4a1_silencer", "weapon_usp_silencer"));
+        menu.AddMenuOption("3. M4A4 + USP", (p, opt) => GiveWeapons(p, "weapon_m4a1", "weapon_usp_silencer"));
+        menu.AddMenuOption("4. AWP + Deagle", (p, opt) => GiveWeapons(p, "weapon_awp", "weapon_deagle"));
 
-        MenuManager.OpenChatMenu(player, menu);
+        // Otwieramy jako CenterHtmlMenu
+        MenuManager.OpenCenterHtmlMenu(this, player, menu);
     }
 
     private void GiveWeapons(CCSPlayerController player, string primary, string secondary)
     {
         if (player == null || player.PlayerPawn.Value == null) return;
 
+        // Natychmiastowe zniknięcie menu z ekranu po wyborze
         MenuManager.CloseActiveMenu(player);
 
         player.RemoveWeapons();
