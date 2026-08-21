@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns Menu + OnlyHS Vote";
-    public override string ModuleVersion => "1.5.0";
+    public override string ModuleVersion => "1.5.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -85,10 +85,9 @@ public class OnlyHeadshot : BasePlugin
         player.GiveNamedItem(primary);
         player.GiveNamedItem(secondary);
         player.GiveNamedItem("weapon_knife");
-
-        var pawn = player.PlayerPawn.Value;
-        pawn.ArmorValue = 100;
-        pawn.HasHelmet = true;
+        
+        // Pancerz + Hełm
+        player.GiveNamedItem("item_assaultsuit");
     }
 
     private void RemoveAllWeapons(CCSPlayerController player)
@@ -148,23 +147,19 @@ public class OnlyHeadshot : BasePlugin
 
         var steamId = player.SteamID;
 
-        // Ustawienie domyślnej broni, jeśli gracz nie wybierał
         if (!_playerWeapons.ContainsKey(steamId))
         {
             _playerWeapons[steamId] = ("weapon_ak47", "weapon_deagle");
             player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!guns\x01, aby go zmienić.");
         }
 
-        // Wydanie wybranej broni
         Server.NextFrame(() => GivePlayerLoadout(player));
 
-        // Start głosowania OnlyHS jeśli runda dopiero ruszyła
         if (!_voteInProgress && !_voteHasBeenExecuted)
         {
             AddTimer(2.0f, StartOnlyHsMenuVote);
         }
 
-        // Ochrona startowa
         var pawn = player.PlayerPawn.Value;
         if (pawn != null && pawn.IsValid)
         {
