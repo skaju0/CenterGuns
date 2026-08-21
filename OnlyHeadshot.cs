@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "1.7.0";
+    public override string ModuleVersion => "1.8.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -149,6 +149,8 @@ public class OnlyHeadshot : BasePlugin
 
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
+        Server.ExecuteCommand("mp_warmup_end");
+
         _voteHasBeenExecuted = false;
         _voteInProgress = false;
         _isOnlyHs = false;
@@ -156,7 +158,6 @@ public class OnlyHeadshot : BasePlugin
 
         Server.ExecuteCommand("mp_respawn_on_death_ct 1");
         Server.ExecuteCommand("mp_respawn_on_death_t 1");
-        Server.ExecuteCommand("mp_respawn_after_death_delay 1");
 
         AddTimer(3.0f, StartOnlyHsMenuVote);
 
@@ -302,6 +303,7 @@ public class OnlyHeadshot : BasePlugin
     {
         var victim = @event.Userid;
 
+        // Bezpieczne sprzątanie broni z opóźnieniem
         Server.NextFrame(CleanDroppedWeapons);
 
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
@@ -325,7 +327,15 @@ public class OnlyHeadshot : BasePlugin
         {
             if (weapon.IsValid && weapon.OwnerEntity.Value == null)
             {
-                weapon.Remove();
+                var weaponRef = weapon.EntityHandle;
+                AddTimer(0.1f, () =>
+                {
+                    var ent = weaponRef.Get();
+                    if (ent != null && ent.IsValid && ent.OwnerEntity.Value == null)
+                    {
+                        ent.Remove();
+                    }
+                });
             }
         }
     }
