@@ -11,14 +11,14 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Aim + OnlyHS Menu Vote";
-    public override string ModuleVersion => "1.4.0";
+    public override string ModuleVersion => "1.4.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
     private const float RespawnDelay = 1.0f;
     private const float ProtectionDuration = 2.0f;
 
-    private bool _isOnlyHs = false; // Domyślnie WYŁĄCZONE
+    private bool _isOnlyHs = false;
     private bool _voteInProgress = false;
     private bool _voteHasBeenExecuted = false;
     private int _voteYes = 0;
@@ -32,10 +32,22 @@ public class OnlyHeadshot : BasePlugin
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
+    }
 
-        // Komenda do ręcznego wywołania głosowania
-        RegisterConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS", OnVoteCommand);
-        RegisterConsoleCommand("css_vote", "Wywołaj głosowanie na OnlyHS", OnVoteCommand);
+    [ConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS")]
+    [ConsoleCommand("css_vote", "Wywołaj głosowanie na OnlyHS")]
+    public void OnVoteCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (player == null || !player.IsValid) return;
+
+        if (_voteInProgress)
+        {
+            player.PrintToChat($"{Prefix} Głosowanie już trwa!");
+            return;
+        }
+
+        _voteHasBeenExecuted = false;
+        StartOnlyHsMenuVote();
     }
 
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
@@ -45,7 +57,6 @@ public class OnlyHeadshot : BasePlugin
         _isOnlyHs = false;
         _votedPlayers.Clear();
 
-        // Wymuszenie komend respawnu w silniku gry
         Server.ExecuteCommand("mp_respawn_on_death_ct 1");
         Server.ExecuteCommand("mp_respawn_on_death_t 1");
         Server.ExecuteCommand("mp_respawn_after_death_delay 1");
@@ -60,13 +71,11 @@ public class OnlyHeadshot : BasePlugin
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        // Jeśli nikt jeszcze nie głosował, odpal menu 2s po spawnie gracza
         if (!_voteInProgress && !_voteHasBeenExecuted)
         {
             AddTimer(2.0f, StartOnlyHsMenuVote);
         }
 
-        // Ochrona po spawnie
         var pawn = player.PlayerPawn.Value;
         if (pawn != null && pawn.IsValid)
         {
@@ -83,20 +92,6 @@ public class OnlyHeadshot : BasePlugin
         }
 
         return HookResult.Continue;
-    }
-
-    private void OnVoteCommand(CCSPlayerController? player, CommandInfo command)
-    {
-        if (player == null || !player.IsValid) return;
-
-        if (_voteInProgress)
-        {
-            player.PrintToChat($"{Prefix} Głosowanie już trwa!");
-            return;
-        }
-
-        _voteHasBeenExecuted = false;
-        StartOnlyHsMenuVote();
     }
 
     private void StartOnlyHsMenuVote()
@@ -176,7 +171,6 @@ public class OnlyHeadshot : BasePlugin
         var attacker = @event.Attacker;
         var victim = @event.Userid;
 
-        // Hitgroup 1 = Głowa
         if (@event.Hitgroup != 1 && victim != null && victim.IsValid && victim.PlayerPawn.Value != null)
         {
             victim.PlayerPawn.Value.Health += @event.DmgHealth;
