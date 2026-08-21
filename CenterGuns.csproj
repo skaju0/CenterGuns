@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,4 +11,5 @@
   <ItemGroup>
     <PackageReference Include="CounterStrikeSharp.API" Version="1.0.320" />
   </ItemGroup>
+
 </Project>
