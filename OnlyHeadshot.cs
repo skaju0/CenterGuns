@@ -10,8 +10,8 @@ namespace OnlyHeadshot;
 
 public class OnlyHeadshot : BasePlugin
 {
-    public override string ModuleName => "1337HUB DM + Aim + OnlyHS Menu Vote";
-    public override string ModuleVersion => "1.4.1";
+    public override string ModuleName => "1337HUB DM + Guns Menu + OnlyHS Vote";
+    public override string ModuleVersion => "1.5.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -24,6 +24,7 @@ public class OnlyHeadshot : BasePlugin
     private int _voteYes = 0;
     private int _voteNo = 0;
     private readonly HashSet<ulong> _votedPlayers = new();
+    private readonly Dictionary<ulong, (string primary, string secondary)> _playerWeapons = new();
     private CounterStrikeSharp.API.Modules.Timers.Timer? _hsReminderTimer;
 
     public override void Load(bool hotReload)
@@ -33,6 +34,80 @@ public class OnlyHeadshot : BasePlugin
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
     }
+
+    // ==========================================
+    // MENU WYBORU BRONI
+    // ==========================================
+
+    [ConsoleCommand("css_guns", "Otwórz menu wyboru broni")]
+    [ConsoleCommand("css_bron", "Otwórz menu wyboru broni")]
+    public void OnGunsCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var gunsMenu = new ChatMenu(" Wybierz zestaw broni ");
+        gunsMenu.AddMenuOption("AK-47 + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle"));
+        gunsMenu.AddMenuOption("M4A1-S + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle"));
+        gunsMenu.AddMenuOption("M4A4 + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle"));
+        gunsMenu.AddMenuOption("AWP + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_awp", "weapon_deagle", "AWP + Deagle"));
+
+        MenuManager.OpenChatMenu(player, gunsMenu);
+    }
+
+    [ConsoleCommand("css_ak", "Szybki wybór AK-47")]
+    public void OnSelectAK(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle");
+
+    [ConsoleCommand("css_m4", "Szybki wybór M4A1-S")]
+    public void OnSelectM4(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle");
+
+    [ConsoleCommand("css_awp", "Szybki wybór AWP")]
+    public void OnSelectAWP(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_awp", "weapon_deagle", "AWP + Deagle");
+
+    private void SetPlayerLoadout(CCSPlayerController? player, string primary, string secondary, string name)
+    {
+        if (player == null || !player.IsValid) return;
+
+        _playerWeapons[player.SteamID] = (primary, secondary);
+        player.PrintToChat($"{Prefix} Wybrano zestaw: \x06{name}\x01. Otrzymasz go przy następnym spawnie.");
+    }
+
+    private void GivePlayerLoadout(CCSPlayerController player)
+    {
+        if (!player.IsValid || !player.PawnIsAlive || player.PlayerPawn.Value == null) return;
+
+        var steamId = player.SteamID;
+        var (primary, secondary) = _playerWeapons.ContainsKey(steamId) 
+            ? _playerWeapons[steamId] 
+            : ("weapon_ak47", "weapon_deagle");
+
+        RemoveAllWeapons(player);
+
+        player.GiveNamedItem(primary);
+        player.GiveNamedItem(secondary);
+        player.GiveNamedItem("weapon_knife");
+
+        var pawn = player.PlayerPawn.Value;
+        pawn.ArmorValue = 100;
+        pawn.HasHelmet = true;
+    }
+
+    private void RemoveAllWeapons(CCSPlayerController player)
+    {
+        if (player.PlayerPawn.Value == null || player.PlayerPawn.Value.WeaponServices == null) return;
+
+        var weapons = player.PlayerPawn.Value.WeaponServices.MyWeapons;
+        foreach (var weapon in weapons)
+        {
+            if (weapon.Value != null && weapon.Value.IsValid)
+            {
+                weapon.Value.Remove();
+            }
+        }
+    }
+
+    // ==========================================
+    // LOGIKA GŁOSOWANIA ONLY HS
+    // ==========================================
 
     [ConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS")]
     [ConsoleCommand("css_vote", "Wywołaj głosowanie na OnlyHS")]
@@ -71,11 +146,25 @@ public class OnlyHeadshot : BasePlugin
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
+        var steamId = player.SteamID;
+
+        // Ustawienie domyślnej broni, jeśli gracz nie wybierał
+        if (!_playerWeapons.ContainsKey(steamId))
+        {
+            _playerWeapons[steamId] = ("weapon_ak47", "weapon_deagle");
+            player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!guns\x01, aby go zmienić.");
+        }
+
+        // Wydanie wybranej broni
+        Server.NextFrame(() => GivePlayerLoadout(player));
+
+        // Start głosowania OnlyHS jeśli runda dopiero ruszyła
         if (!_voteInProgress && !_voteHasBeenExecuted)
         {
             AddTimer(2.0f, StartOnlyHsMenuVote);
         }
 
+        // Ochrona startowa
         var pawn = player.PlayerPawn.Value;
         if (pawn != null && pawn.IsValid)
         {
