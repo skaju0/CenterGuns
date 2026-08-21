@@ -10,8 +10,8 @@ namespace OnlyHeadshot;
 
 public class OnlyHeadshot : BasePlugin
 {
-    public override string ModuleName => "1337HUB DM + Guns Menu + OnlyHS Vote";
-    public override string ModuleVersion => "1.6.0";
+    public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
+    public override string ModuleVersion => "1.7.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -45,7 +45,6 @@ public class OnlyHeadshot : BasePlugin
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        // Jeśli gracz jest Nieprzydzielony (0) lub w Obserwatorach (1), przydziel go automatycznie
         if (player.TeamNum <= 1)
         {
             Server.NextFrame(() =>
@@ -61,22 +60,20 @@ public class OnlyHeadshot : BasePlugin
     }
 
     // ==========================================
-    // MENU WYBORU BRONI
+    // DEDYKOWANE KOMENDY WYBORU BRONI (!ak, !m4, !awp)
     // ==========================================
 
-    [ConsoleCommand("css_guns", "Otwórz menu wyboru broni")]
-    [ConsoleCommand("css_bron", "Otwórz menu wyboru broni")]
+    [ConsoleCommand("css_guns", "Informacja o komendach broni")]
+    [ConsoleCommand("css_bron", "Informacja o komendach broni")]
     public void OnGunsCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
 
-        var gunsMenu = new ChatMenu(" Wybierz zestaw broni ");
-        gunsMenu.AddMenuOption("AK-47 + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle"));
-        gunsMenu.AddMenuOption("M4A1-S + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle"));
-        gunsMenu.AddMenuOption("M4A4 + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle"));
-        gunsMenu.AddMenuOption("AWP + Deagle", (p, option) => SetPlayerLoadout(p, "weapon_awp", "weapon_deagle", "AWP + Deagle"));
-
-        MenuManager.OpenChatMenu(player, gunsMenu);
+        player.PrintToChat($"{Prefix} \x06Dostępne komendy wyboru broni:\x01");
+        player.PrintToChat(" \x0C!ak\x01 - AK-47 + Deagle");
+        player.PrintToChat(" \x0C!m4\x01 - M4A1-S + Deagle");
+        player.PrintToChat(" \x0C!m4a4\x01 - M4A4 + Deagle");
+        player.PrintToChat(" \x0C!awp\x01 - AWP + Deagle");
     }
 
     [ConsoleCommand("css_ak", "Szybki wybór AK-47")]
@@ -84,6 +81,9 @@ public class OnlyHeadshot : BasePlugin
 
     [ConsoleCommand("css_m4", "Szybki wybór M4A1-S")]
     public void OnSelectM4(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle");
+
+    [ConsoleCommand("css_m4a4", "Szybki wybór M4A4")]
+    public void OnSelectM4A4(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle");
 
     [ConsoleCommand("css_awp", "Szybki wybór AWP")]
     public void OnSelectAWP(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_awp", "weapon_deagle", "AWP + Deagle");
@@ -168,7 +168,6 @@ public class OnlyHeadshot : BasePlugin
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        // Jeśli gracz przy spawnie z jakiegoś powodu jest bez drużyny, przerzuć go
         if (player.TeamNum <= 1)
         {
             player.ChangeTeam(CsTeam.Terrorist);
@@ -180,7 +179,7 @@ public class OnlyHeadshot : BasePlugin
         if (!_playerWeapons.ContainsKey(steamId))
         {
             _playerWeapons[steamId] = ("weapon_ak47", "weapon_deagle");
-            player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!guns\x01, aby go zmienić.");
+            player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!ak\x01, \x0C!m4\x01 lub \x0C!awp\x01 aby zmienić.");
         }
 
         Server.NextFrame(() => GivePlayerLoadout(player));
