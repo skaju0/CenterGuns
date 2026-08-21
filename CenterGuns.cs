@@ -8,7 +8,7 @@ namespace CenterGuns;
 public class CenterGuns : BasePlugin
 {
     public override string ModuleName => "Center Guns Menu";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => "1.0.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Tag = " \u000B[1337HUB.PL]\u0001";
@@ -53,6 +53,9 @@ public class CenterGuns : BasePlugin
     private void GiveWeapons(CCSPlayerController player, string primary, string secondary)
     {
         if (player == null || player.PlayerPawn.Value == null) return;
+
+        // Wymuszenie natychmiastowego zamknięcia menu po dokonaniu wyboru
+        MenuManager.CloseActiveMenu(player);
 
         player.RemoveWeapons();
         player.GiveNamedItem(primary);
