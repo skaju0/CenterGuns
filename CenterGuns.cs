@@ -1,6 +1,7 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
+using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Menu;
 
 namespace CenterGuns;
@@ -8,7 +9,7 @@ namespace CenterGuns;
 public class CenterGuns : BasePlugin
 {
     public override string ModuleName => "Center Guns Menu";
-    public override string ModuleVersion => "1.0.8";
+    public override string ModuleVersion => "1.0.9";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Tag = " \u000B[1337HUB.PL]\u0001";
