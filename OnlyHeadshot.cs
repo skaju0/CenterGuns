@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns Menu + OnlyHS Vote";
-    public override string ModuleVersion => "1.5.1";
+    public override string ModuleVersion => "1.6.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -33,6 +33,31 @@ public class OnlyHeadshot : BasePlugin
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
+        RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+    }
+
+    // ==========================================
+    // AUTOMATYCZNE DOŁĄCZANIE DO DRUŻYNY
+    // ==========================================
+
+    private HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
+    {
+        var player = @event.Userid;
+        if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
+
+        // Jeśli gracz jest Nieprzydzielony (0) lub w Obserwatorach (1), przydziel go automatycznie
+        if (player.TeamNum <= 1)
+        {
+            Server.NextFrame(() =>
+            {
+                if (player.IsValid && player.TeamNum <= 1)
+                {
+                    player.ChangeTeam(CsTeam.Terrorist);
+                }
+            });
+        }
+
+        return HookResult.Continue;
     }
 
     // ==========================================
@@ -85,8 +110,6 @@ public class OnlyHeadshot : BasePlugin
         player.GiveNamedItem(primary);
         player.GiveNamedItem(secondary);
         player.GiveNamedItem("weapon_knife");
-        
-        // Pancerz + Hełm
         player.GiveNamedItem("item_assaultsuit");
     }
 
@@ -144,6 +167,13 @@ public class OnlyHeadshot : BasePlugin
     {
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
+
+        // Jeśli gracz przy spawnie z jakiegoś powodu jest bez drużyny, przerzuć go
+        if (player.TeamNum <= 1)
+        {
+            player.ChangeTeam(CsTeam.Terrorist);
+            return HookResult.Continue;
+        }
 
         var steamId = player.SteamID;
 
