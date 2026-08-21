@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "1.9.1";
+    public override string ModuleVersion => "2.1.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -115,26 +115,11 @@ public class OnlyHeadshot : BasePlugin
             ? _playerWeapons[steamId] 
             : ("weapon_ak47", "weapon_deagle");
 
-        RemoveAllWeapons(player);
-
+        // Wydawanie broni bezpośrednio bez czyszczenia encji, aby nie wywoływać błędu PVS
         player.GiveNamedItem(primary);
         player.GiveNamedItem(secondary);
         player.GiveNamedItem("weapon_knife");
         player.GiveNamedItem("item_assaultsuit");
-    }
-
-    private void RemoveAllWeapons(CCSPlayerController player)
-    {
-        if (player.PlayerPawn.Value == null || player.PlayerPawn.Value.WeaponServices == null) return;
-
-        var weapons = player.PlayerPawn.Value.WeaponServices.MyWeapons;
-        foreach (var weapon in weapons)
-        {
-            if (weapon.Value != null && weapon.Value.IsValid)
-            {
-                weapon.Value.AcceptInput("Kill");
-            }
-        }
     }
 
     // ==========================================
@@ -313,9 +298,6 @@ public class OnlyHeadshot : BasePlugin
     {
         var victim = @event.Userid;
 
-        // Bezpieczne usuwanie broni z ziemi za pomocą AcceptInput
-        AddTimer(0.2f, CleanDroppedWeapons);
-
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
         {
             AddTimer(RespawnDelay, () =>
@@ -328,17 +310,5 @@ public class OnlyHeadshot : BasePlugin
         }
 
         return HookResult.Continue;
-    }
-
-    private void CleanDroppedWeapons()
-    {
-        var weapons = Utilities.FindAllEntitiesByDesignerName<CBasePlayerWeapon>("weapon_");
-        foreach (var weapon in weapons)
-        {
-            if (weapon.IsValid && weapon.OwnerEntity.Value == null)
-            {
-                weapon.AcceptInput("Kill");
-            }
-        }
     }
 }
