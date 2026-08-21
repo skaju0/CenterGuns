@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "1.8.0";
+    public override string ModuleVersion => "1.9.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -37,7 +37,7 @@ public class OnlyHeadshot : BasePlugin
     }
 
     // ==========================================
-    // AUTOMATYCZNE DOŁĄCZANIE DO DRUŻYNY
+    // RÓWNY BALANS AUTOMATYCZNEGO DOŁĄCZANIA (CT/T)
     // ==========================================
 
     private HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
@@ -51,12 +51,23 @@ public class OnlyHeadshot : BasePlugin
             {
                 if (player.IsValid && player.TeamNum <= 1)
                 {
-                    player.ChangeTeam(CsTeam.Terrorist);
+                    AssignBalancedTeam(player);
                 }
             });
         }
 
         return HookResult.Continue;
+    }
+
+    private void AssignBalancedTeam(CCSPlayerController player)
+    {
+        var players = Utilities.GetPlayers().Where(p => p.IsValid && p.TeamNum > 1).ToList();
+        int tCount = players.Count(p => p.TeamNum == (byte)CsTeam.Terrorist);
+        int ctCount = players.Count(p => p.TeamNum == (byte)CsTeam.CounterTerrorist);
+
+        // Wrzuć do drużyny, w której jest mniej graczy
+        CsTeam targetTeam = tCount <= ctCount ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+        player.ChangeTeam(targetTeam);
     }
 
     // ==========================================
@@ -171,7 +182,7 @@ public class OnlyHeadshot : BasePlugin
 
         if (player.TeamNum <= 1)
         {
-            player.ChangeTeam(CsTeam.Terrorist);
+            AssignBalancedTeam(player);
             return HookResult.Continue;
         }
 
@@ -303,7 +314,6 @@ public class OnlyHeadshot : BasePlugin
     {
         var victim = @event.Userid;
 
-        // Bezpieczne sprzątanie broni z opóźnieniem
         Server.NextFrame(CleanDroppedWeapons);
 
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
@@ -331,9 +341,9 @@ public class OnlyHeadshot : BasePlugin
                 AddTimer(0.1f, () =>
                 {
                     var ent = weaponRef.Get();
-                    if (ent != null && ent.IsValid && ent.OwnerEntity.Value == null)
+                    if (ent is CBasePlayerWeapon baseWeapon && baseWeapon.IsValid && baseWeapon.OwnerEntity.Value == null)
                     {
-                        ent.Remove();
+                        baseWeapon.Remove();
                     }
                 });
             }
