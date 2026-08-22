@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.1.0";
+    public override string ModuleVersion => "2.2.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -34,6 +34,24 @@ public class OnlyHeadshot : BasePlugin
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
         RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+
+        // Auto-restart przy starcie mapy, aby wyeliminować zwiechy "Waiting for players"
+        RegisterListener<Listeners.OnMapStart>((mapName) =>
+        {
+            AddTimer(2.0f, ForceUnfreezeGame);
+        });
+
+        if (hotReload)
+        {
+            ForceUnfreezeGame();
+        }
+    }
+
+    private void ForceUnfreezeGame()
+    {
+        Server.ExecuteCommand("mp_warmup_end");
+        Server.ExecuteCommand("mp_waiting_for_players_cancel 1");
+        Server.ExecuteCommand("mp_restartgame 1");
     }
 
     // ==========================================
@@ -115,7 +133,10 @@ public class OnlyHeadshot : BasePlugin
             ? _playerWeapons[steamId] 
             : ("weapon_ak47", "weapon_deagle");
 
-        // Wydawanie broni bezpośrednio bez czyszczenia encji, aby nie wywoływać błędu PVS
+        // Usuwanie wszystkich aktualnie posiadanych broni, aby Deagle się nie blokował w slocie
+        player.RemoveWeapons();
+
+        // Wydawanie pełnego zestawu od nowa
         player.GiveNamedItem(primary);
         player.GiveNamedItem(secondary);
         player.GiveNamedItem("weapon_knife");
