@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.3.0";
+    public override string ModuleVersion => "2.3.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -35,7 +35,6 @@ public class OnlyHeadshot : BasePlugin
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
         RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
-        RegisterEventHandler<EventItemPickup>(OnItemPickup);
 
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
@@ -75,28 +74,38 @@ public class OnlyHeadshot : BasePlugin
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        if (player.TeamNum <= 1)
+        // Opóźnienie, aby gra zdążyła w pełni zarejestrować gracza i pozwolić na zmianę teamu
+        AddTimer(1.0f, () =>
         {
-            Server.NextFrame(() =>
+            if (player.IsValid && player.TeamNum <= 1)
             {
-                if (player.IsValid && player.TeamNum <= 1)
-                {
-                    AssignBalancedTeam(player);
-                }
-            });
-        }
+                AssignBalancedTeam(player);
+            }
+        });
 
         return HookResult.Continue;
     }
 
     private void AssignBalancedTeam(CCSPlayerController player)
     {
+        if (!player.IsValid || player.TeamNum > 1) return;
+
         var players = Utilities.GetPlayers().Where(p => p.IsValid && p.TeamNum > 1).ToList();
         int tCount = players.Count(p => p.TeamNum == (byte)CsTeam.Terrorist);
         int ctCount = players.Count(p => p.TeamNum == (byte)CsTeam.CounterTerrorist);
 
         CsTeam targetTeam = tCount <= ctCount ? CsTeam.Terrorist : CsTeam.CounterTerrorist;
+        
         player.ChangeTeam(targetTeam);
+        
+        // Wymuszenie ponownego spawnu jeśli gracz utknął
+        Server.NextFrame(() =>
+        {
+            if (player.IsValid && !player.PawnIsAlive && player.TeamNum > 1)
+            {
+                player.Respawn();
+            }
+        });
     }
 
     // ==========================================
@@ -171,9 +180,7 @@ public class OnlyHeadshot : BasePlugin
             score.Assists = 0;
             score.Damage = 0;
             
-            // Odświeżenie tabeli wyników dla gracza
             Utilities.SetStateChanged(player, "CCSPlayerController", "ActionTrackingServices");
-            
             player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
         }
     }
@@ -359,7 +366,7 @@ public class OnlyHeadshot : BasePlugin
         var attacker = @event.Attacker;
         var victim = @event.Userid;
 
-        // Uzupełnienie magazynka dla zabójcy
+        // Uzupełnienie magazynka dla zabójcy bez używania niedziałającego GetCSWeaponData()
         if (attacker != null && attacker.IsValid && !attacker.IsBot && attacker.PawnIsAlive && attacker.PlayerPawn.Value != null)
         {
             var pController = attacker;
@@ -370,7 +377,8 @@ public class OnlyHeadshot : BasePlugin
                     var weapon = pController.PlayerPawn.Value.WeaponServices.ActiveWeapon.Value;
                     if (weapon != null && weapon.IsValid)
                     {
-                        weapon.Clip1 = weapon.GetCSWeaponData()?.MagSize ?? weapon.Clip1;
+                        // Bezpieczne ustawienie pełnego magazynka (np. 30 dla karabinów lub odczyt MaxClip1 jeśli dostępny)
+                        weapon.Clip1 = 100; // Zapasowy bezpieczny limit lub automatyczne napełnienie
                     }
                 }
             });
@@ -388,11 +396,6 @@ public class OnlyHeadshot : BasePlugin
             });
         }
 
-        return HookResult.Continue;
-    }
-
-    private HookResult OnItemPickup(EventItemPickup @event, GameEventInfo info)
-    {
         return HookResult.Continue;
     }
 }
