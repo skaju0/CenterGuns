@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.3.1";
+    public override string ModuleVersion => "2.3.2";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -26,7 +26,6 @@ public class OnlyHeadshot : BasePlugin
     private readonly HashSet<ulong> _votedPlayers = new();
     private readonly Dictionary<ulong, (string primary, string secondary)> _playerWeapons = new();
     private CounterStrikeSharp.API.Modules.Timers.Timer? _hsReminderTimer;
-    private CounterStrikeSharp.API.Modules.Timers.Timer? _adsTimer;
 
     public override void Load(bool hotReload)
     {
@@ -39,23 +38,12 @@ public class OnlyHeadshot : BasePlugin
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
-            StartAdsTimer();
         });
 
         if (hotReload)
         {
             ForceUnfreezeGame();
-            StartAdsTimer();
         }
-    }
-
-    private void StartAdsTimer()
-    {
-        _adsTimer?.Kill();
-        _adsTimer = AddTimer(120.0f, () =>
-        {
-            Server.PrintToChatAll($"{Prefix} Wpisz \x0C!rs\x01 lub \x0C!reset\x01, aby zresetować swoje statysty (zabójstwa/śmierci).");
-        }, TimerFlags.REPEAT);
     }
 
     private void ForceUnfreezeGame()
@@ -74,7 +62,6 @@ public class OnlyHeadshot : BasePlugin
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        // Opóźnienie, aby gra zdążyła w pełni zarejestrować gracza i pozwolić na zmianę teamu
         AddTimer(1.0f, () =>
         {
             if (player.IsValid && player.TeamNum <= 1)
@@ -98,7 +85,6 @@ public class OnlyHeadshot : BasePlugin
         
         player.ChangeTeam(targetTeam);
         
-        // Wymuszenie ponownego spawnu jeśli gracz utknął
         Server.NextFrame(() =>
         {
             if (player.IsValid && !player.PawnIsAlive && player.TeamNum > 1)
@@ -366,7 +352,6 @@ public class OnlyHeadshot : BasePlugin
         var attacker = @event.Attacker;
         var victim = @event.Userid;
 
-        // Uzupełnienie magazynka dla zabójcy bez używania niedziałającego GetCSWeaponData()
         if (attacker != null && attacker.IsValid && !attacker.IsBot && attacker.PawnIsAlive && attacker.PlayerPawn.Value != null)
         {
             var pController = attacker;
@@ -377,14 +362,12 @@ public class OnlyHeadshot : BasePlugin
                     var weapon = pController.PlayerPawn.Value.WeaponServices.ActiveWeapon.Value;
                     if (weapon != null && weapon.IsValid)
                     {
-                        // Bezpieczne ustawienie pełnego magazynka (np. 30 dla karabinów lub odczyt MaxClip1 jeśli dostępny)
-                        weapon.Clip1 = 100; // Zapasowy bezpieczny limit lub automatyczne napełnienie
+                        weapon.Clip1 = 100;
                     }
                 }
             });
         }
 
-        // Odrespienie gracza
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
         {
             AddTimer(RespawnDelay, () =>
