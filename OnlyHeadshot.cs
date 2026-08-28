@@ -10,8 +10,8 @@ namespace OnlyHeadshot;
 
 public class OnlyHeadshot : BasePlugin
 {
-    public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.3.5";
+    public override string ModuleName => "1337HUB DM + Guns + Menu";
+    public override string ModuleVersion => "2.4.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -90,37 +90,60 @@ public class OnlyHeadshot : BasePlugin
         });
     }
 
-    [ConsoleCommand("css_guns", "Informacja o komendach broni")]
-    [ConsoleCommand("css_bron", "Informacja o komendach broni")]
-    public void OnGunsCommand(CCSPlayerController? player, CommandInfo command)
+    // ==========================================
+    // GŁÓWNE MENU POD KOMENDĄ !menu LUB !guns
+    // ==========================================
+
+    [ConsoleCommand("css_menu", "Otwórz główne menu serwera")]
+    [ConsoleCommand("css_guns", "Otwórz główne menu serwera")]
+    [ConsoleCommand("css_bron", "Otwórz główne menu serwera")]
+    public void OnMenuCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
 
-        player.PrintToChat($"{Prefix} \x06Dostępne komendy wyboru broni:\x01");
-        player.PrintToChat(" \x0C!ak\x01 - AK-47 + Deagle");
-        player.PrintToChat(" \x0C!m4\x01 - M4A1-S + Deagle");
-        player.PrintToChat(" \x0C!m4a4\x01 - M4A4 + Deagle");
-        player.PrintToChat(" \x0C!awp\x01 - AWP + Deagle");
+        var menu = new ChatMenu("1337HUB - Menu Serwera");
+        
+        menu.AddMenuOption("Wybór Broni (AK / M4 / AWP)", (p, opt) => OpenGunsMenu(p));
+        menu.AddMenuOption("Reset Statystyk (!rs)", (p, opt) => 
+        {
+            p.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
+            MenuManager.CloseActiveMenu(p);
+        });
+        menu.AddMenuOption("Zagłosuj na Only HS", (p, opt) => 
+        {
+            if (_voteInProgress)
+            {
+                p.PrintToChat($"{Prefix} Głosowanie już trwa!");
+            }
+            else
+            {
+                _voteHasBeenExecuted = false;
+                StartOnlyHsMenuVote();
+            }
+            MenuManager.CloseActiveMenu(p);
+        });
+
+        MenuManager.OpenChatMenu(player, menu);
     }
 
-    [ConsoleCommand("css_ak", "Szybki wybór AK-47")]
-    public void OnSelectAK(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle");
-
-    [ConsoleCommand("css_m4", "Szybki wybór M4A1-S")]
-    public void OnSelectM4(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle");
-
-    [ConsoleCommand("css_m4a4", "Szybki wybór M4A4")]
-    public void OnSelectM4A4(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle");
-
-    [ConsoleCommand("css_awp", "Szybki wybór AWP")]
-    public void OnSelectAWP(CCSPlayerController? player, CommandInfo command) => SetPlayerLoadout(player, "weapon_awp", "weapon_deagle", "AWP + Deagle");
-
-    private void SetPlayerLoadout(CCSPlayerController? player, string primary, string secondary, string name)
+    private void OpenGunsMenu(CCSPlayerController player)
     {
-        if (player == null || !player.IsValid) return;
+        if (!player.IsValid) return;
 
+        var gunsMenu = new ChatMenu("Wybierz zestaw broni");
+        gunsMenu.AddMenuOption("AK-47 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle"));
+        gunsMenu.AddMenuOption("M4A1-S + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle"));
+        gunsMenu.AddMenuOption("M4A4 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle"));
+        gunsMenu.AddMenuOption("AWP + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_awp", "weapon_deagle", "AWP + Deagle"));
+
+        MenuManager.OpenChatMenu(player, gunsMenu);
+    }
+
+    private void SetPlayerLoadoutAndClose(CCSPlayerController player, string primary, string secondary, string name)
+    {
         _playerWeapons[player.SteamID] = (primary, secondary);
         player.PrintToChat($"{Prefix} Wybrano zestaw: \x06{name}\x01. Otrzymasz go przy następnym spawnie.");
+        MenuManager.CloseActiveMenu(player);
     }
 
     private void GivePlayerLoadout(CCSPlayerController player)
@@ -140,21 +163,12 @@ public class OnlyHeadshot : BasePlugin
         player.GiveNamedItem("item_assaultsuit");
     }
 
-    // Bezpieczny reset statystyk bez odwoływania się do uszkodzonych pól pamięci
     [ConsoleCommand("css_rs", "Resetuj statystyki")]
     [ConsoleCommand("css_reset", "Resetuj statystyki")]
     public void OnResetScoreCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
-
-        // W DM na okrągło fragi/śmierci gracza najlepiej zerować przez właściwości gracza lub informację na czacie, 
-        // ponieważ bezpośrednia modyfikacja MatchStats powoduje crash silnika CS2.
-        if (player.PlayerPawn.Value?.ItemServices != null)
-        {
-            // Przykładowe bezpieczne wyczyszczenie / powiadomienie
-        }
-
-        player.PrintToChat($"{Prefix} Twoje statysty (zabójstwa / śmierci) zostały zresetowane.");
+        player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
     }
 
     [ConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS")]
@@ -206,7 +220,7 @@ public class OnlyHeadshot : BasePlugin
         if (!_playerWeapons.ContainsKey(steamId))
         {
             _playerWeapons[steamId] = ("weapon_ak47", "weapon_deagle");
-            player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!ak\x01, \x0C!m4\x01 lub \x0C!awp\x01 aby zmienić.");
+            player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!menu\x01 aby zmienić broń.");
         }
 
         Server.NextFrame(() => GivePlayerLoadout(player));
@@ -335,6 +349,14 @@ public class OnlyHeadshot : BasePlugin
         if (attacker != null && attacker.IsValid && !attacker.IsBot && attacker.PawnIsAlive && attacker.PlayerPawn.Value != null)
         {
             var pController = attacker;
+            Server.NextFrame(() =>
+            {
+                if (pController.IsValid && pController.PawnIsAlive && pController.PlayerPagesAndWeaponsOk() && pController.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value != null)
+                {
+                    // Full clip
+                }
+            });
+
             Server.NextFrame(() =>
             {
                 if (pController.IsValid && pController.PawnIsAlive && pController.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value != null)
