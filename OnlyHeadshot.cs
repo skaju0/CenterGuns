@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.2.0";
+    public override string ModuleVersion => "2.3.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -26,6 +26,7 @@ public class OnlyHeadshot : BasePlugin
     private readonly HashSet<ulong> _votedPlayers = new();
     private readonly Dictionary<ulong, (string primary, string secondary)> _playerWeapons = new();
     private CounterStrikeSharp.API.Modules.Timers.Timer? _hsReminderTimer;
+    private CounterStrikeSharp.API.Modules.Timers.Timer? _adsTimer;
 
     public override void Load(bool hotReload)
     {
@@ -34,17 +35,28 @@ public class OnlyHeadshot : BasePlugin
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
         RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+        RegisterEventHandler<EventItemPickup>(OnItemPickup);
 
-        // Auto-restart przy starcie mapy, aby wyeliminować zwiechy "Waiting for players"
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
+            StartAdsTimer();
         });
 
         if (hotReload)
         {
             ForceUnfreezeGame();
+            StartAdsTimer();
         }
+    }
+
+    private void StartAdsTimer()
+    {
+        _adsTimer?.Kill();
+        _adsTimer = AddTimer(120.0f, () =>
+        {
+            Server.PrintToChatAll($"{Prefix} Wpisz \x0C!rs\x01 lub \x0C!reset\x01, aby zresetować swoje statysty (zabójstwa/śmierci).");
+        }, TimerFlags.REPEAT);
     }
 
     private void ForceUnfreezeGame()
@@ -133,14 +145,37 @@ public class OnlyHeadshot : BasePlugin
             ? _playerWeapons[steamId] 
             : ("weapon_ak47", "weapon_deagle");
 
-        // Usuwanie wszystkich aktualnie posiadanych broni, aby Deagle się nie blokował w slocie
         player.RemoveWeapons();
 
-        // Wydawanie pełnego zestawu od nowa
         player.GiveNamedItem(primary);
         player.GiveNamedItem(secondary);
         player.GiveNamedItem("weapon_knife");
         player.GiveNamedItem("item_assaultsuit");
+    }
+
+    // ==========================================
+    // KOMENDA RESETU STATYSTYK (!rs)
+    // ==========================================
+
+    [ConsoleCommand("css_rs", "Resetuj statystyki")]
+    [ConsoleCommand("css_reset", "Resetuj statystyki")]
+    public void OnResetScoreCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var score = player.ActionTrackingServices?.MatchStats;
+        if (score != null)
+        {
+            score.Kills = 0;
+            score.Deaths = 0;
+            score.Assists = 0;
+            score.Damage = 0;
+            
+            // Odświeżenie tabeli wyników dla gracza
+            Utilities.SetStateChanged(player, "CCSPlayerController", "ActionTrackingServices");
+            
+            player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
+        }
     }
 
     // ==========================================
@@ -315,10 +350,33 @@ public class OnlyHeadshot : BasePlugin
         return HookResult.Continue;
     }
 
+    // ==========================================
+    // PEŁNY MAGAZYNEK PO ZABICIU
+    // ==========================================
+
     private HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
     {
+        var attacker = @event.Attacker;
         var victim = @event.Userid;
 
+        // Uzupełnienie magazynka dla zabójcy
+        if (attacker != null && attacker.IsValid && !attacker.IsBot && attacker.PawnIsAlive && attacker.PlayerPawn.Value != null)
+        {
+            var pController = attacker;
+            Server.NextFrame(() =>
+            {
+                if (pController.IsValid && pController.PawnIsAlive && pController.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value != null)
+                {
+                    var weapon = pController.PlayerPawn.Value.WeaponServices.ActiveWeapon.Value;
+                    if (weapon != null && weapon.IsValid)
+                    {
+                        weapon.Clip1 = weapon.GetCSWeaponData()?.MagSize ?? weapon.Clip1;
+                    }
+                }
+            });
+        }
+
+        // Odrespienie gracza
         if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
         {
             AddTimer(RespawnDelay, () =>
@@ -330,6 +388,11 @@ public class OnlyHeadshot : BasePlugin
             });
         }
 
+        return HookResult.Continue;
+    }
+
+    private HookResult OnItemPickup(EventItemPickup @event, GameEventInfo info)
+    {
         return HookResult.Continue;
     }
 }
