@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.3.2";
+    public override string ModuleVersion => "2.3.3";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -31,14 +31,45 @@ public class OnlyHeadshot : BasePlugin
     {
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
-        RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
-        RegisterEventHandler<EventRoundStart>(OnRoundStart);
-        RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
-
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
         });
+
+        // Prawidłowy hook na obrażenia zapobiegający znikaniu graczy
+        RegisterListener<Listeners.OnEntityTakeDamage>((entity, info) =>
+        {
+            if (!_isOnlyHs) return HookResult.Continue;
+
+            if (entity == null || !entity.IsValid || entity.DesignerName != "player")
+                return HookResult.Continue;
+
+            var victim = new CCSPlayerController(entity.Handle);
+            if (victim == null || !victim.IsValid || victim.IsBot)
+                return HookResult.Continue;
+
+            // Hitgroup 1 to głowa (Head). Jeśli trafiono w cokolwiek innego, zerujemy obrażenia.
+            if (info.HitGroup != (int)HitGroup.HEAD)
+            {
+                info.Damage = 0f;
+                
+                if (info.Attacker != null && info.Attacker.IsValid && info.Attacker.DesignerName == "player")
+                {
+                    var attacker = new CCSPlayerController(info.Attacker.Handle);
+                    if (attacker != null && attacker.IsValid && !attacker.IsBot)
+                    {
+                        attacker.PrintToCenterHtml("<font color='#FF0000'><b>ONLY HEADSHOT!</b></font>");
+                    }
+                }
+
+                return HookResult.Changed;
+            }
+
+            return HookResult.Continue;
+        });
+
+        RegisterEventHandler<EventRoundStart>(OnRoundStart);
+        RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
 
         if (hotReload)
         {
@@ -52,10 +83,6 @@ public class OnlyHeadshot : BasePlugin
         Server.ExecuteCommand("mp_waiting_for_players_cancel 1");
         Server.ExecuteCommand("mp_restartgame 1");
     }
-
-    // ==========================================
-    // RÓWNY BALANS AUTOMATYCZNEGO DOŁĄCZANIA (CT/T)
-    // ==========================================
 
     private HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
     {
@@ -93,10 +120,6 @@ public class OnlyHeadshot : BasePlugin
             }
         });
     }
-
-    // ==========================================
-    // DEDYKOWANE KOMENDY WYBORU BRONI (!ak, !m4, !awp)
-    // ==========================================
 
     [ConsoleCommand("css_guns", "Informacja o komendach broni")]
     [ConsoleCommand("css_bron", "Informacja o komendach broni")]
@@ -148,10 +171,6 @@ public class OnlyHeadshot : BasePlugin
         player.GiveNamedItem("item_assaultsuit");
     }
 
-    // ==========================================
-    // KOMENDA RESETU STATYSTYK (!rs)
-    // ==========================================
-
     [ConsoleCommand("css_rs", "Resetuj statystyki")]
     [ConsoleCommand("css_reset", "Resetuj statystyki")]
     public void OnResetScoreCommand(CCSPlayerController? player, CommandInfo command)
@@ -170,10 +189,6 @@ public class OnlyHeadshot : BasePlugin
             player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
         }
     }
-
-    // ==========================================
-    // LOGIKA GŁOSOWANIA ONLY HS
-    // ==========================================
 
     [ConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS")]
     [ConsoleCommand("css_vote", "Wywołaj głosowanie na OnlyHS")]
@@ -321,31 +336,6 @@ public class OnlyHeadshot : BasePlugin
             Server.PrintToChatAll($"{Prefix} Wynik: \x02NIE\x01 ({_voteYes} vs {_voteNo}). Gramy w trybie standardowym.");
         }
     }
-
-    private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
-    {
-        if (!_isOnlyHs) return HookResult.Continue;
-
-        var attacker = @event.Attacker;
-        var victim = @event.Userid;
-
-        if (@event.Hitgroup != 1 && victim != null && victim.IsValid && victim.PlayerPawn.Value != null)
-        {
-            victim.PlayerPawn.Value.Health += @event.DmgHealth;
-            victim.PlayerPawn.Value.ArmorValue += @event.DmgArmor;
-
-            if (attacker != null && attacker.IsValid && !attacker.IsBot)
-            {
-                attacker.PrintToCenterHtml("<font color='#FF0000'><b>ONLY HEADSHOT!</b></font>");
-            }
-        }
-
-        return HookResult.Continue;
-    }
-
-    // ==========================================
-    // PEŁNY MAGAZYNEK PO ZABICIU
-    // ==========================================
 
     private HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
     {
