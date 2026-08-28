@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + Menu";
-    public override string ModuleVersion => "2.4.0";
+    public override string ModuleVersion => "2.4.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -349,14 +349,6 @@ public class OnlyHeadshot : BasePlugin
         if (attacker != null && attacker.IsValid && !attacker.IsBot && attacker.PawnIsAlive && attacker.PlayerPawn.Value != null)
         {
             var pController = attacker;
-            Server.NextFrame(() =>
-            {
-                if (pController.IsValid && pController.PawnIsAlive && pController.PlayerPagesAndWeaponsOk() && pController.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value != null)
-                {
-                    // Full clip
-                }
-            });
-
             Server.NextFrame(() =>
             {
                 if (pController.IsValid && pController.PawnIsAlive && pController.PlayerPawn.Value?.WeaponServices?.ActiveWeapon.Value != null)
