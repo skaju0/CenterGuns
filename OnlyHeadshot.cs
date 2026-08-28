@@ -2,16 +2,16 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
+using CS2MenuManager.API.Menu; // Wymagane dla WasdMenu
 
 namespace OnlyHeadshot;
 
 public class OnlyHeadshot : BasePlugin
 {
-    public override string ModuleName => "1337HUB DM + Guns + Menu";
-    public override string ModuleVersion => "2.4.1";
+    public override string ModuleName => "1337HUB DM + WASD Menu";
+    public override string ModuleVersion => "2.5.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -38,6 +38,8 @@ public class OnlyHeadshot : BasePlugin
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
+            Server.ExecuteCommand("bot_quota_mode fill");
+            Server.ExecuteCommand("bot_quota 10"); // Maksymalna liczba botów wypełniających serwer
         });
 
         if (hotReload)
@@ -91,7 +93,7 @@ public class OnlyHeadshot : BasePlugin
     }
 
     // ==========================================
-    // GŁÓWNE MENU POD KOMENDĄ !menu LUB !guns
+    // GŁÓWNE WASD MENU POD KOMENDĄ !menu
     // ==========================================
 
     [ConsoleCommand("css_menu", "Otwórz główne menu serwera")]
@@ -101,15 +103,13 @@ public class OnlyHeadshot : BasePlugin
     {
         if (player == null || !player.IsValid) return;
 
-        var menu = new ChatMenu("1337HUB - Menu Serwera");
-        
-        menu.AddMenuOption("Wybór Broni (AK / M4 / AWP)", (p, opt) => OpenGunsMenu(p));
-        menu.AddMenuOption("Reset Statystyk (!rs)", (p, opt) => 
+        // Tworzenie menu sterowanego przez WASD (W/S/E)
+        WasdMenu menu = new("DeathMatch", this)
         {
-            p.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
-            MenuManager.CloseActiveMenu(p);
-        });
-        menu.AddMenuOption("Zagłosuj na Only HS", (p, opt) => 
+            WasdMenu_FreezePlayer = false // Zmień na true, jeśli gracz ma się nie ruszać podczas przeglądania menu
+        };
+        
+        menu.AddItem("Mode: only HS", (p, opt) => 
         {
             if (_voteInProgress)
             {
@@ -120,30 +120,36 @@ public class OnlyHeadshot : BasePlugin
                 _voteHasBeenExecuted = false;
                 StartOnlyHsMenuVote();
             }
-            MenuManager.CloseActiveMenu(p);
         });
 
-        MenuManager.OpenChatMenu(player, menu);
+        menu.AddItem("Wybór Broni (AK/M4/AWP)", (p, opt) => OpenGunsWasdMenu(p));
+        
+        menu.AddItem("Reset Statystyk (!rs)", (p, opt) => 
+        {
+            p.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
+        });
+
+        menu.Display(player, 0); // Wyświetlenie menu dla gracza
     }
 
-    private void OpenGunsMenu(CCSPlayerController player)
+    private void OpenGunsWasdMenu(CCSPlayerController player)
     {
         if (!player.IsValid) return;
 
-        var gunsMenu = new ChatMenu("Wybierz zestaw broni");
-        gunsMenu.AddMenuOption("AK-47 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle"));
-        gunsMenu.AddMenuOption("M4A1-S + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle"));
-        gunsMenu.AddMenuOption("M4A4 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle"));
-        gunsMenu.AddMenuOption("AWP + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_awp", "weapon_deagle", "AWP + Deagle"));
+        WasdMenu gunsMenu = new("Wybierz zestaw broni", this);
+        
+        gunsMenu.AddItem("AK-47 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle"));
+        gunsMenu.AddItem("M4A1-S + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle"));
+        gunsMenu.AddItem("M4A4 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle"));
+        gunsMenu.AddItem("AWP + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_awp", "weapon_deagle", "AWP + Deagle"));
 
-        MenuManager.OpenChatMenu(player, gunsMenu);
+        gunsMenu.Display(player, 0);
     }
 
     private void SetPlayerLoadoutAndClose(CCSPlayerController player, string primary, string secondary, string name)
     {
         _playerWeapons[player.SteamID] = (primary, secondary);
         player.PrintToChat($"{Prefix} Wybrano zestaw: \x06{name}\x01. Otrzymasz go przy następnym spawnie.");
-        MenuManager.CloseActiveMenu(player);
     }
 
     private void GivePlayerLoadout(CCSPlayerController player)
@@ -220,7 +226,7 @@ public class OnlyHeadshot : BasePlugin
         if (!_playerWeapons.ContainsKey(steamId))
         {
             _playerWeapons[steamId] = ("weapon_ak47", "weapon_deagle");
-            player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!menu\x01 aby zmienić broń.");
+            player.PrintToChat($"{Prefix} Domyślny zestaw: \x06AK-47 + Deagle\x01. Wpisz \x0C!menu\x01 aby otworzyć menu.");
         }
 
         Server.NextFrame(() => GivePlayerLoadout(player));
@@ -260,13 +266,13 @@ public class OnlyHeadshot : BasePlugin
 
         Server.PrintToChatAll($"{Prefix} Rozpoczęto głosowanie na tryb \x0C[ONLY HEADSHOT]\x01!");
 
-        var voteMenu = new ChatMenu(" Czy włączyć tryb ONLY HEADSHOT? ");
-        voteMenu.AddMenuOption("TAK (Only Headshot)", (player, option) => ProcessVote(player, true));
-        voteMenu.AddMenuOption("NIE (Normalne obrażenia)", (player, option) => ProcessVote(player, false));
-
+        // Głosowanie również w formie menu WASD
         foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
         {
-            MenuManager.OpenChatMenu(player, voteMenu);
+            WasdMenu voteMenu = new("Czy wlaczyc ONLY HEADSHOT?", this);
+            voteMenu.AddItem("TAK (Only Headshot)", (p, opt) => ProcessVote(p, true));
+            voteMenu.AddItem("NIE (Normalne obrazenia)", (p, opt) => ProcessVote(p, false));
+            voteMenu.Display(player, 15);
         }
 
         AddTimer(15.0f, FinishVote);
@@ -291,11 +297,6 @@ public class OnlyHeadshot : BasePlugin
     private void FinishVote()
     {
         _voteInProgress = false;
-
-        foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
-        {
-            MenuManager.CloseActiveMenu(player);
-        }
 
         if (_voteYes > _voteNo)
         {
@@ -362,7 +363,7 @@ public class OnlyHeadshot : BasePlugin
             });
         }
 
-        if (victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
+        if (victim != long.MinValue && victim != null && victim.IsValid && !victim.IsBot && victim.TeamNum > 1)
         {
             AddTimer(RespawnDelay, () =>
             {
