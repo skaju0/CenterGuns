@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.3.3";
+    public override string ModuleVersion => "2.3.4";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -31,45 +31,14 @@ public class OnlyHeadshot : BasePlugin
     {
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
+        RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
+        RegisterEventHandler<EventRoundStart>(OnRoundStart);
+        RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
         });
-
-        // Prawidłowy hook na obrażenia zapobiegający znikaniu graczy
-        RegisterListener<Listeners.OnEntityTakeDamage>((entity, info) =>
-        {
-            if (!_isOnlyHs) return HookResult.Continue;
-
-            if (entity == null || !entity.IsValid || entity.DesignerName != "player")
-                return HookResult.Continue;
-
-            var victim = new CCSPlayerController(entity.Handle);
-            if (victim == null || !victim.IsValid || victim.IsBot)
-                return HookResult.Continue;
-
-            // Hitgroup 1 to głowa (Head). Jeśli trafiono w cokolwiek innego, zerujemy obrażenia.
-            if (info.HitGroup != (int)HitGroup.HEAD)
-            {
-                info.Damage = 0f;
-                
-                if (info.Attacker != null && info.Attacker.IsValid && info.Attacker.DesignerName == "player")
-                {
-                    var attacker = new CCSPlayerController(info.Attacker.Handle);
-                    if (attacker != null && attacker.IsValid && !attacker.IsBot)
-                    {
-                        attacker.PrintToCenterHtml("<font color='#FF0000'><b>ONLY HEADSHOT!</b></font>");
-                    }
-                }
-
-                return HookResult.Changed;
-            }
-
-            return HookResult.Continue;
-        });
-
-        RegisterEventHandler<EventRoundStart>(OnRoundStart);
-        RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
 
         if (hotReload)
         {
@@ -335,6 +304,30 @@ public class OnlyHeadshot : BasePlugin
             _isOnlyHs = false;
             Server.PrintToChatAll($"{Prefix} Wynik: \x02NIE\x01 ({_voteYes} vs {_voteNo}). Gramy w trybie standardowym.");
         }
+    }
+
+    private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
+    {
+        if (!_isOnlyHs) return HookResult.Continue;
+
+        var victim = @event.Userid;
+        var attacker = @event.Attacker;
+
+        // Hitgroup 1 to głowa. Jeśli trafiono w cokolwiek innego, zwracamy HP i wyświetlamy komunikat bez dotykania pozycji modelu.
+        if (@event.Hitgroup != 1 && victim != null && victim.IsValid && victim.PlayerPawn.Value != null)
+        {
+            var pawn = victim.PlayerPawn.Value;
+            pawn.Health += @event.DmgHealth;
+            
+            if (pawn.Health > 100) pawn.Health = 100;
+
+            if (attacker != null && attacker.IsValid && !attacker.IsBot)
+            {
+                attacker.PrintToCenterHtml("<font color='#FF0000'><b>ONLY HEADSHOT!</b></font>");
+            }
+        }
+
+        return HookResult.Continue;
     }
 
     private HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
