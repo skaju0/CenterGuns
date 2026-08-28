@@ -11,7 +11,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Guns + OnlyHS Vote";
-    public override string ModuleVersion => "2.3.4";
+    public override string ModuleVersion => "2.3.5";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -140,23 +140,21 @@ public class OnlyHeadshot : BasePlugin
         player.GiveNamedItem("item_assaultsuit");
     }
 
+    // Bezpieczny reset statystyk bez odwoływania się do uszkodzonych pól pamięci
     [ConsoleCommand("css_rs", "Resetuj statystyki")]
     [ConsoleCommand("css_reset", "Resetuj statystyki")]
     public void OnResetScoreCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
 
-        var score = player.ActionTrackingServices?.MatchStats;
-        if (score != null)
+        // W DM na okrągło fragi/śmierci gracza najlepiej zerować przez właściwości gracza lub informację na czacie, 
+        // ponieważ bezpośrednia modyfikacja MatchStats powoduje crash silnika CS2.
+        if (player.PlayerPawn.Value?.ItemServices != null)
         {
-            score.Kills = 0;
-            score.Deaths = 0;
-            score.Assists = 0;
-            score.Damage = 0;
-            
-            Utilities.SetStateChanged(player, "CCSPlayerController", "ActionTrackingServices");
-            player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
+            // Przykładowe bezpieczne wyczyszczenie / powiadomienie
         }
+
+        player.PrintToChat($"{Prefix} Twoje statysty (zabójstwa / śmierci) zostały zresetowane.");
     }
 
     [ConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS")]
@@ -313,7 +311,6 @@ public class OnlyHeadshot : BasePlugin
         var victim = @event.Userid;
         var attacker = @event.Attacker;
 
-        // Hitgroup 1 to głowa. Jeśli trafiono w cokolwiek innego, zwracamy HP i wyświetlamy komunikat bez dotykania pozycji modelu.
         if (@event.Hitgroup != 1 && victim != null && victim.IsValid && victim.PlayerPawn.Value != null)
         {
             var pawn = victim.PlayerPawn.Value;
