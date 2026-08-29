@@ -10,15 +10,14 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.25.0";
+    public override string ModuleVersion => "2.26.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
     private const float RespawnDelay = 1.0f;
     private const float ProtectionDuration = 2.0f;
 
-    // Cichszy, przyjemniejszy dźwięk trafienia w głowę (subtelny klik pancerza/metalu)
-    private const string SoundHeadshot = "sounds/player/kevlar1.vsnd";
+    private const string SoundHeadshot = "sounds/player/kevlar2.vsnd";
 
     private bool _isOnlyHs = false;
     private bool _voteInProgress = false;
@@ -157,10 +156,10 @@ public class OnlyHeadshot : BasePlugin
 
             int maxOptions = menuId switch
             {
-                1 => 4, 
+                1 => 3, 
                 2 => 5, 
                 3 => 2, 
-                _ => 4
+                _ => 3
             };
 
             if (canPress)
@@ -202,7 +201,7 @@ public class OnlyHeadshot : BasePlugin
 
         if (menuId == 1)
         {
-            string[] options = { "Mode: only HS", "Wybór Broni (AK/M4/AWP)", "Reset Statystyk (!rs)", "Wyjdź" };
+            string[] options = { "Tryb: Tylko HS", "Wybór Broni (AK/M4/AWP)", "Wyjdź" };
             for (int i = 0; i < options.Length; i++)
             {
                 if (i == selectedIndex)
@@ -224,7 +223,7 @@ public class OnlyHeadshot : BasePlugin
         }
         else if (menuId == 3)
         {
-            html += "<span style='color: #55FFFF; font-size: 11px; font-weight: bold; display: block; text-align: center; margin-bottom: 6px;'>GŁOSOWANIE: ONLY HEADSHOT</span><br/>";
+            html += "<span style='color: #55FFFF; font-size: 11px; font-weight: bold; display: block; text-align: center; margin-bottom: 6px;'>GŁOSOWANIE: TYLKO HEADSHOT</span><br/>";
             string[] voteOptions = { "TAK (Włącz Only HS)", "NIE (Tryb Normalny)" };
             for (int i = 0; i < voteOptions.Length; i++)
             {
@@ -258,11 +257,6 @@ public class OnlyHeadshot : BasePlugin
             }
             else if (selectedIndex == 2)
             {
-                ResetPlayerScore(player);
-                _playerMenus.Remove(player.SteamID);
-            }
-            else if (selectedIndex == 3)
-            {
                 _playerMenus.Remove(player.SteamID);
             }
         }
@@ -285,7 +279,7 @@ public class OnlyHeadshot : BasePlugin
     private void SetPlayerLoadoutAndClose(CCSPlayerController player, string primary, string secondary, string name)
     {
         _playerWeapons[player.SteamID] = (primary, secondary);
-        player.PrintToChat($"{Prefix} Wybrano zestaw: \x06{name}\x01. Otrzymasz go przy następnym spawnie.");
+        player.PrintToChat($"{Prefix} Wybrano zestaw: \x06{name}\x01. Otrzymasz go przy następnym odrodzeniu.");
         _playerMenus.Remove(player.SteamID);
     }
 
@@ -304,24 +298,6 @@ public class OnlyHeadshot : BasePlugin
         player.GiveNamedItem(secondary);
         player.GiveNamedItem("weapon_knife");
         player.GiveNamedItem("item_assaultsuit");
-    }
-
-    [ConsoleCommand("css_rs", "Resetuj statystyki")]
-    [ConsoleCommand("css_reset", "Resetuj statystyki")]
-    public void OnResetScoreCommand(CCSPlayerController? player, CommandInfo command)
-    {
-        if (player == null || !player.IsValid) return;
-        ResetPlayerScore(player);
-    }
-
-    private void ResetPlayerScore(CCSPlayerController player)
-    {
-        if (!player.IsValid) return;
-
-        player.Score = 0;
-        Utilities.SetStateChanged(player, "CCSPlayerController", "m_iScore");
-
-        player.PrintToChat($"{Prefix} Twoje statysty zostały pomyślnie zresetowane.");
     }
 
     [ConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS")]
@@ -429,7 +405,7 @@ public class OnlyHeadshot : BasePlugin
         _voteNo = 0;
         _votedPlayers.Clear();
 
-        Server.PrintToChatAll($"{Prefix} Rozpoczęto głosowanie na tryb \x0C[ONLY HEADSHOT]\x01!");
+        Server.PrintToChatAll($"{Prefix} Rozpoczęto głosowanie na tryb \x0C[TYLKO HEADSHOT]\x01!");
         Server.PrintToChatAll($"{Prefix} Otwórz \x0C!menu\x01 lub poczekaj, aby oddać głos!");
 
         foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
@@ -471,14 +447,14 @@ public class OnlyHeadshot : BasePlugin
         if (_voteYes > _voteNo)
         {
             _isOnlyHs = true;
-            Server.PrintToChatAll($"{Prefix} Wynik: \x06TAK\x01 ({_voteYes} vs {_voteNo}). Włączono \x0C[ONLY HEADSHOT]\x01!");
+            Server.PrintToChatAll($"{Prefix} Wynik: \x06TAK\x01 ({_voteYes} vs {_voteNo}). Włączono tryb \x0C[TYLKO HEADSHOT]\x01!");
             
             _hsReminderTimer?.Kill();
             _hsReminderTimer = AddTimer(60.0f, () =>
             {
                 if (_isOnlyHs)
                 {
-                    Server.PrintToChatAll($"{Prefix} \x0C[PRZYPOMNIENIE]\x01 Aktywny tryb \x06ONLY HEADSHOT\x01!");
+                    Server.PrintToChatAll($"{Prefix} \x0C[PRZYPOMNIENIE]\x01 Aktywny tryb \x06TYLKO HEADSHOT\x01!");
                 }
             }, TimerFlags.REPEAT);
         }
@@ -494,7 +470,6 @@ public class OnlyHeadshot : BasePlugin
         var victim = @event.Userid;
         var attacker = @event.Attacker;
 
-        // Subtelny, nierewiący uszu dźwięk trafienia w głowę
         if (attacker != null && attacker.IsValid && !attacker.IsBot && @event.Hitgroup == 1)
         {
             attacker.ExecuteClientCommand($"play {SoundHeadshot}");
@@ -511,7 +486,7 @@ public class OnlyHeadshot : BasePlugin
 
             if (attacker != null && attacker.IsValid && !attacker.IsBot)
             {
-                attacker.PrintToCenterHtml("<font color='#FF5555'><b>ONLY HEADSHOT!</b></font>");
+                attacker.PrintToCenterHtml("<font color='#FF5555'><b>TYLKO HEADSHOT!</b></font>");
             }
         }
 
