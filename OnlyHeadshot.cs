@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.20.0";
+    public override string ModuleVersion => "2.21.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
@@ -42,6 +42,23 @@ public class OnlyHeadshot : BasePlugin
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
+            
+            // Wymuszenie komend botów oraz automatyczne dodanie botów po załadowaniu mapy z Workshopu
+            AddTimer(6.0f, () =>
+            {
+                Server.ExecuteCommand("mp_limitteams 0");
+                Server.ExecuteCommand("mp_autoteambalance 0");
+                Server.ExecuteCommand("bot_quota_mode fill");
+                Server.ExecuteCommand("bot_quota 5");
+                Server.ExecuteCommand("bot_join_after_player 0");
+                Server.ExecuteCommand("bot_autovacate 0");
+                
+                // Pętla dodająca boty bezpośrednio do gry
+                for (int i = 0; i < 5; i++)
+                {
+                    Server.ExecuteCommand("bot_add");
+                }
+            });
         });
 
         RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
@@ -178,10 +195,8 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        // Nowoczesne okienko z wyraźną, kolorową ramką i dopasowaną szerokością
         string html = "<div style='background-color: rgba(18, 18, 20, 0.95); padding: 12px; border-radius: 6px; width: 420px; font-family: monospace; color: #E0E0E0; text-align: left; border: 2px solid #FF5555;'>";
         
-        // Kolorowy nagłówek
         html += "<div style='text-align: center; border-bottom: 1px solid rgba(255,85,85,0.4); padding-bottom: 5px; margin-bottom: 8px;'>";
         html += "<span style='color: #FF5555; font-size: 15px; font-weight: bold;'>⚡ 1337HUB AIM DM ⚡</span>";
         html += "</div><br/>";
@@ -221,7 +236,6 @@ public class OnlyHeadshot : BasePlugin
             }
         }
 
-        // Kolorowy, czytelny panel sterowania na dole
         html += "<div style='border-top: 1px solid rgba(255,255,255,0.15); padding-top: 6px; text-align: center; font-size: 10px; color: #AAA;'>";
         html += "<b style='color:#FF5555;'>[W]</b> GÓRA &nbsp;|&nbsp; <b style='color:#FF5555;'>[S]</b> DÓŁ &nbsp;|&nbsp; <b style='color:#55FF55;'>[E]</b> WYBIERZ";
         html += "</div>";
@@ -454,7 +468,7 @@ public class OnlyHeadshot : BasePlugin
             _hsReminderTimer = AddTimer(60.0f, () =>
             {
                 if (_isOnlyHs)
-                {
+            {
                     Server.PrintToChatAll($"{Prefix} \x0C[PRZYPOMNIENIE]\x01 Aktywny tryb \x06ONLY HEADSHOT\x01!");
                 }
             }, TimerFlags.REPEAT);
