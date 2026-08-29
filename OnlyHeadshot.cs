@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Native WASD Menu";
-    public override string ModuleVersion => "2.12.0";
+    public override string ModuleVersion => "2.13.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -25,7 +25,6 @@ public class OnlyHeadshot : BasePlugin
     private readonly HashSet<ulong> _votedPlayers = new();
     private readonly Dictionary<ulong, (string primary, string secondary)> _playerWeapons = new();
     
-    // Stan menu dla gracza: (menuId, selectedIndex)
     private readonly Dictionary<ulong, (int menuId, int selectedIndex)> _playerMenus = new();
     private readonly Dictionary<ulong, DateTime> _lastButtonPress = new();
 
@@ -110,10 +109,6 @@ public class OnlyHeadshot : BasePlugin
         });
     }
 
-    // ==========================================
-    // KOMENDY OTWIERAJĄCE MENU
-    // ==========================================
-
     [ConsoleCommand("css_menu", "Otwórz główne menu serwera")]
     [ConsoleCommand("css_guns", "Otwórz główne menu serwera")]
     [ConsoleCommand("css_bron", "Otwórz główne menu serwera")]
@@ -122,10 +117,6 @@ public class OnlyHeadshot : BasePlugin
         if (player == null || !player.IsValid) return;
         _playerMenus[player.SteamID] = (1, 0);
     }
-
-    // ==========================================
-    // SYSTEM OBSŁUGI WASD W CZASIE RZECZYWISTYM
-    // ==========================================
 
     private void OnTickMenuSystem()
     {
@@ -189,8 +180,11 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        string html = "<div style='background-color: rgba(0,0,0,0.85); padding: 12px; border-radius: 6px; width: 320px; font-family: monospace; color: white; text-align: left; border: 1px solid #444;'>" +
-                      "<b style='color: #FFCC00; display: block; text-align: center; font-size: 14px;'>[1337HUB.PL] DeathMatch</b><br>";
+        // Nowoczesny, przejrzysty design z wyrazistymi kolorami i mocno powiększonymi "przyciskami" sterowania na dole
+        string html = "<div style='background: linear-gradient(135deg, rgba(15,15,15,0.95), rgba(35,35,35,0.95)); padding: 14px; border-radius: 8px; width: 350px; font-family: monospace; color: white; text-align: left; border: 2px solid #F39C12; box-shadow: 0 0 15px rgba(0,0,0,0.8);'>" +
+                      "<div style='text-align: center; border-bottom: 2px solid #F39C12; padding-bottom: 6px; margin-bottom: 8px;'>" +
+                      "<span style='color: #F39C12; font-size: 16px; font-weight: bold;'>[ 1337HUB.PL ]</span><br>" +
+                      "<span style='color: #FFFFFF; font-size: 13px; letter-spacing: 1px;'>DEATHMATCH MENU</span></div>";
 
         if (menuId == 1)
         {
@@ -198,9 +192,11 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < options.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='color: #00FF00; font-weight: bold;'>&gt; {i + 1}. {options[i]} [E]</span><br>";
+                    html += $"<div style='background-color: rgba(46, 204, 113, 0.25); border-left: 4px solid #2ECC71; padding: 5px 8px; margin: 4px 0; border-radius: 4px;'>" +
+                            $"<span style='color: #2ECC71; font-weight: bold; font-size: 14px;'>▶ {i + 1}. {options[i]} <b style='color: #FFF;'>[E]</b></span></div>";
                 else
-                    html += $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span><br>";
+                    html += $"<div style='padding: 5px 8px; margin: 4px 0;'>" +
+                            $"<span style='color: #CCCCCC; font-size: 13px;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span></div>";
             }
         }
         else if (menuId == 2)
@@ -209,25 +205,35 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < weapons.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='color: #00FF00; font-weight: bold;'>&gt; {i + 1}. {weapons[i]} [E]</span><br>";
+                    html += $"<div style='background-color: rgba(46, 204, 113, 0.25); border-left: 4px solid #2ECC71; padding: 5px 8px; margin: 4px 0; border-radius: 4px;'>" +
+                            $"<span style='color: #2ECC71; font-weight: bold; font-size: 14px;'>▶ {i + 1}. {weapons[i]} <b style='color: #FFF;'>[E]</b></span></div>";
                 else
-                    html += $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span><br>";
+                    html += $"<div style='padding: 5px 8px; margin: 4px 0;'>" +
+                            $"<span style='color: #CCCCCC; font-size: 13px;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span></div>";
             }
         }
         else if (menuId == 3)
         {
-            html += "<div style='color: #00FFFF; text-align: center; font-size: 12px;'>Trwa głosowanie na Only Headshot!</div><br>";
+            html += "<div style='color: #00FFFF; text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;'>GŁOSOWANIE NA ONLY HEADSHOT</div>";
             string[] voteOptions = { "TAK (Włącz Only HS)", "NIE (Tryb Normalny)" };
             for (int i = 0; i < voteOptions.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='color: #00FF00; font-weight: bold;'>&gt; {i + 1}. {voteOptions[i]} [E]</span><br>";
+                    html += $"<div style='background-color: rgba(46, 204, 113, 0.25); border-left: 4px solid #2ECC71; padding: 5px 8px; margin: 4px 0; border-radius: 4px;'>" +
+                            $"<span style='color: #2ECC71; font-weight: bold; font-size: 14px;'>▶ {i + 1}. {voteOptions[i]} <b style='color: #FFF;'>[E]</b></span></div>";
                 else
-                    html += $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span><br>";
+                    html += $"<div style='padding: 5px 8px; margin: 4px 0;'>" +
+                            $"<span style='color: #CCCCCC; font-size: 13px;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span></div>";
             }
         }
 
-        html += "<br><hr style='border-color: #555; margin: 4px 0;'><div style='text-align: center; font-size: 11px; color: #888;'>[W] Góra | [S] Dół | [E] Wybierz</div></div>";
+        // Duży, czytelny panel sterowania na samym dole z obramowanymi "przyciskami" klawiatury
+        html += "<br><div style='border-top: 1px dashed #666; padding-top: 8px; text-align: center;'>" +
+                "<span style='background-color: #333; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>W</span> <span style='color: #AAA; font-size: 11px;'>GÓRA</span> &nbsp;&nbsp;" +
+                "<span style='background-color: #333; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>S</span> <span style='color: #AAA; font-size: 11px;'>DÓŁ</span> &nbsp;&nbsp;" +
+                "<span style='background-color: #27AE60; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>E</span> <span style='color: #2ECC71; font-weight: bold; font-size: 11px;'>WYBIERZ</span>" +
+                "</div></div>";
+
         return html;
     }
 
@@ -310,7 +316,6 @@ public class OnlyHeadshot : BasePlugin
     {
         if (!player.IsValid) return;
 
-        // Resetowanie punktów/fragów gracza bezbłędnie kompilującym się sposobem
         player.Score = 0;
         Utilities.SetStateChanged(player, "CCSPlayerController", "m_iScore");
 
@@ -448,7 +453,7 @@ public class OnlyHeadshot : BasePlugin
             _isOnlyHs = true;
             Server.PrintToChatAll($"{Prefix} Wynik: \x06TAK\x01 ({_voteYes} vs {_voteNo}). Włączono \x0C[ONLY HEADSHOT]\x01!");
             
-            _hsReminderTimer?.Kill();
+            _hsReminderTimer?.Link();
             _hsReminderTimer = AddTimer(60.0f, () =>
             {
                 if (_isOnlyHs)
