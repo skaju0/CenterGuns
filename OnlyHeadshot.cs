@@ -9,11 +9,11 @@ namespace OnlyHeadshot;
 
 public class OnlyHeadshot : BasePlugin
 {
-    public override string ModuleName => "1337HUB DM + Native WASD Menu";
-    public override string ModuleVersion => "2.14.0";
+    public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
+    public override string ModuleVersion => "2.15.0";
     public override string ModuleAuthor => "1337HUB";
 
-    private const string Prefix = " \x0B[1337HUB.PL]\x01";
+    private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
     private const float RespawnDelay = 1.0f;
     private const float ProtectionDuration = 2.0f;
 
@@ -43,8 +43,8 @@ public class OnlyHeadshot : BasePlugin
         {
             AddTimer(2.0f, ForceUnfreezeGame);
             
-            // Poprawione, bezpieczne wymuszenie konfiguracji botów po załadowaniu mapy z Workshopu
-            AddTimer(3.0f, () =>
+            // Poprawiona inicjalizacja botów wymuszająca tryb na mapach z Workshopu
+            AddTimer(4.0f, () =>
             {
                 Server.ExecuteCommand("bot_kick");
                 Server.ExecuteCommand("bot_quota_mode fill");
@@ -52,6 +52,8 @@ public class OnlyHeadshot : BasePlugin
                 Server.ExecuteCommand("bot_difficulty 2");
                 Server.ExecuteCommand("bot_join_after_player 0");
                 Server.ExecuteCommand("bot_autovacate 1");
+                Server.ExecuteCommand("mp_limitteams 0");
+                Server.ExecuteCommand("mp_autoteambalance 0");
             });
         });
 
@@ -189,10 +191,10 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        string html = "<div style='background: linear-gradient(135deg, rgba(15,15,15,0.95), rgba(35,35,35,0.95)); padding: 14px; border-radius: 8px; width: 350px; font-family: monospace; color: white; text-align: left; border: 2px solid #F39C12; box-shadow: 0 0 15px rgba(0,0,0,0.8);'>" +
-                      "<div style='text-align: center; border-bottom: 2px solid #F39C12; padding-bottom: 6px; margin-bottom: 8px;'>" +
-                      "<span style='color: #F39C12; font-size: 16px; font-weight: bold;'>[ 1337HUB.PL ]</span><br>" +
-                      "<span style='color: #FFFFFF; font-size: 13px; letter-spacing: 1px;'>DEATHMATCH MENU</span></div>";
+        // Nowy, lekki, smukły i przejrzysty styl (mniej "gruby", eleganckie ciemne tło z cienką ramką)
+        string html = "<div style='background-color: rgba(18, 18, 20, 0.90); padding: 10px; border-radius: 6px; width: 310px; font-family: monospace; color: #E0E0E0; text-align: left; border: 1px solid rgba(255,255,255,0.15);'>" +
+                      "<div style='text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 5px; margin-bottom: 6px;'>" +
+                      "<span style='color: #FF5555; font-size: 14px; font-weight: bold;'>1337HUB AIM DM</span></div>";
 
         if (menuId == 1)
         {
@@ -200,11 +202,11 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < options.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<div style='background-color: rgba(46, 204, 113, 0.25); border-left: 4px solid #2ECC71; padding: 5px 8px; margin: 4px 0; border-radius: 4px;'>" +
-                            $"<span style='color: #2ECC71; font-weight: bold; font-size: 14px;'>▶ {i + 1}. {options[i]} <b style='color: #FFF;'>[E]</b></span></div>";
+                    html += $"<div style='background-color: rgba(255, 85, 85, 0.15); padding: 3px 6px; margin: 2px 0; border-radius: 3px;'>" +
+                            $"<span style='color: #FF5555; font-weight: bold;'>&gt; {i + 1}. {options[i]} <span style='color: #FFF;'>[E]</span></span></div>";
                 else
-                    html += $"<div style='padding: 5px 8px; margin: 4px 0;'>" +
-                            $"<span style='color: #CCCCCC; font-size: 13px;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span></div>";
+                    html += $"<div style='padding: 3px 6px; margin: 2px 0;'>" +
+                            $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span></div>";
             }
         }
         else if (menuId == 2)
@@ -213,32 +215,31 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < weapons.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<div style='background-color: rgba(46, 204, 113, 0.25); border-left: 4px solid #2ECC71; padding: 5px 8px; margin: 4px 0; border-radius: 4px;'>" +
-                            $"<span style='color: #2ECC71; font-weight: bold; font-size: 14px;'>▶ {i + 1}. {weapons[i]} <b style='color: #FFF;'>[E]</b></span></div>";
+                    html += $"<div style='background-color: rgba(255, 85, 85, 0.15); padding: 3px 6px; margin: 2px 0; border-radius: 3px;'>" +
+                            $"<span style='color: #FF5555; font-weight: bold;'>&gt; {i + 1}. {weapons[i]} <span style='color: #FFF;'>[E]</span></span></div>";
                 else
-                    html += $"<div style='padding: 5px 8px; margin: 4px 0;'>" +
-                            $"<span style='color: #CCCCCC; font-size: 13px;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span></div>";
+                    html += $"<div style='padding: 3px 6px; margin: 2px 0;'>" +
+                            $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span></div>";
             }
         }
         else if (menuId == 3)
         {
-            html += "<div style='color: #00FFFF; text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;'>GŁOSOWANIE NA ONLY HEADSHOT</div>";
+            html += "<div style='color: #55FFFF; text-align: center; font-size: 11px; margin-bottom: 4px;'>GŁOSOWANIE: ONLY HEADSHOT</div>";
             string[] voteOptions = { "TAK (Włącz Only HS)", "NIE (Tryb Normalny)" };
             for (int i = 0; i < voteOptions.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<div style='background-color: rgba(46, 204, 113, 0.25); border-left: 4px solid #2ECC71; padding: 5px 8px; margin: 4px 0; border-radius: 4px;'>" +
-                            $"<span style='color: #2ECC71; font-weight: bold; font-size: 14px;'>▶ {i + 1}. {voteOptions[i]} <b style='color: #FFF;'>[E]</b></span></div>";
+                    html += $"<div style='background-color: rgba(255, 85, 85, 0.15); padding: 3px 6px; margin: 2px 0; border-radius: 3px;'>" +
+                            $"<span style='color: #FF5555; font-weight: bold;'>&gt; {i + 1}. {voteOptions[i]} <span style='color: #FFF;'>[E]</span></span></div>";
                 else
-                    html += $"<div style='padding: 5px 8px; margin: 4px 0;'>" +
-                            $"<span style='color: #CCCCCC; font-size: 13px;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span></div>";
+                    html += $"<div style='padding: 3px 6px; margin: 2px 0;'>" +
+                            $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span></div>";
             }
         }
 
-        html += "<br><div style='border-top: 1px dashed #666; padding-top: 8px; text-align: center;'>" +
-                "<span style='background-color: #333; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>W</span> <span style='color: #AAA; font-size: 11px;'>GÓRA</span> &nbsp;&nbsp;" +
-                "<span style='background-color: #333; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>S</span> <span style='color: #AAA; font-size: 11px;'>DÓŁ</span> &nbsp;&nbsp;" +
-                "<span style='background-color: #27AE60; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>E</span> <span style='color: #2ECC71; font-weight: bold; font-size: 11px;'>WYBIERZ</span>" +
+        // Czysty, zgrabny pasek nawigacyjny na samym dole
+        html += "<div style='border-top: 1px solid rgba(255,255,255,0.15); margin-top: 6px; padding-top: 5px; text-align: center; font-size: 10px; color: #888;'>" +
+                "<b style='color:#DDD;'>[W]</b> GÓRA &nbsp;|&nbsp; <b style='color:#DDD;'>[S]</b> DÓŁ &nbsp;|&nbsp; <b style='color:#FF5555;'>[E]</b> WYBIERZ" +
                 "</div></div>";
 
         return html;
@@ -392,7 +393,7 @@ public class OnlyHeadshot : BasePlugin
         if (pawn != null && pawn.IsValid)
         {
             pawn.TakesDamage = false;
-            player.PrintToCenterHtml("<font color='#00FF00'><b>[1337HUB.PL] OCHRONA STARTOWA (2s)</b></font>");
+            player.PrintToCenterHtml("<font color='#55FF55'><b>OCHRONA STARTOWA (2s)</b></font>");
 
             AddTimer(ProtectionDuration, () =>
             {
@@ -492,7 +493,7 @@ public class OnlyHeadshot : BasePlugin
 
             if (attacker != null && attacker.IsValid && !attacker.IsBot)
             {
-                attacker.PrintToCenterHtml("<font color='#FF0000'><b>[1337HUB.PL] ONLY HEADSHOT!</b></font>");
+                attacker.PrintToCenterHtml("<font color='#FF5555'><b>ONLY HEADSHOT!</b></font>");
             }
         }
 
