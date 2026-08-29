@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.17.0";
+    public override string ModuleVersion => "2.18.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
@@ -43,22 +43,29 @@ public class OnlyHeadshot : BasePlugin
         {
             AddTimer(2.0f, ForceUnfreezeGame);
             
-            // Inicjalizacja komend botów silnika oraz uruchomienie pętli zarządzającej
-            AddTimer(4.0f, () =>
+            // Agresywne wymuszenie odblokowania i dodania botów na mapach z Workshopu
+            AddTimer(5.0f, () =>
             {
+                Server.ExecuteCommand("mp_limitteams 0");
+                Server.ExecuteCommand("mp_autoteambalance 0");
+                Server.ExecuteCommand("bot_kick");
                 Server.ExecuteCommand("bot_quota_mode fill");
                 Server.ExecuteCommand("bot_quota 10");
                 Server.ExecuteCommand("bot_difficulty 2");
                 Server.ExecuteCommand("bot_join_after_player 0");
                 Server.ExecuteCommand("bot_autovacate 1");
-                Server.ExecuteCommand("mp_limitteams 0");
-                Server.ExecuteCommand("mp_autoteambalance 0");
+                
+                // Wstrzyknięcie botów po starcie
+                for (int i = 0; i < 6; i++)
+                {
+                    Server.ExecuteCommand("bot_add");
+                }
             });
         });
 
         RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
 
-        // Cykliczny timer pilnujący stanu botów co 2 sekundy
+        // Pętla zarządzająca botami co 2 sekundy
         AddTimer(2.0f, CheckAndManageBots, TimerFlags.REPEAT);
 
         if (hotReload)
@@ -73,21 +80,11 @@ public class OnlyHeadshot : BasePlugin
         int realPlayers = players.Count(p => p.IsValid && !p.IsBot && p.TeamNum > 1);
         int currentBots = players.Count(p => p.IsValid && p.IsBot && p.TeamNum > 1);
         
-        // Docelowa liczba botów do 10 (zmniejsza się, gdy wchodzą prawdziwi gracze, zachowując limit slotów)
         int targetBots = Math.Max(0, 10 - realPlayers);
 
         if (currentBots < targetBots)
         {
             Server.ExecuteCommand("bot_add");
-        }
-        else if (currentBots > targetBots)
-        {
-            // Usuń nadmiarowego bota
-            var botToKick = players.FirstOrDefault(p => p.IsValid && p.IsBot);
-            if (botToKick != null)
-            {
-                Server.ExecuteCommand($"kickid {botToKick.UserId}");
-            }
         }
     }
 
@@ -217,7 +214,8 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        string html = "<div style='background-color: rgba(18, 18, 20, 0.95); padding: 12px; border-radius: 6px; width: 340px; font-family: monospace; color: #E0E0E0; text-align: left; border: 1px solid rgba(255,255,255,0.2);'>";
+        // Zwiększono szerokość kontenera do 420px, aby długie opcje miały miejsce i nie zawijały się w niespodziewanych miejscach
+        string html = "<div style='background-color: rgba(18, 18, 20, 0.95); padding: 12px; border-radius: 6px; width: 420px; font-family: monospace; color: #E0E0E0; text-align: left; border: 1px solid rgba(255,255,255,0.2);'>";
         
         html += "<div style='text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 5px; margin-bottom: 6px;'>";
         html += "<span style='color: #FF5555; font-size: 14px; font-weight: bold;'>1337HUB AIM DM</span>";
@@ -229,9 +227,9 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < options.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 3px 6px; border-radius: 3px; display: block; margin-bottom: 4px;'>&gt; {i + 1}. {options[i]} [E]</span>";
+                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 4px 8px; border-radius: 3px; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {options[i]} [E]</span><br/>";
                 else
-                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 4px;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span>";
+                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span><br/>";
             }
         }
         else if (menuId == 2)
@@ -240,25 +238,25 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < weapons.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 3px 6px; border-radius: 3px; display: block; margin-bottom: 4px;'>&gt; {i + 1}. {weapons[i]} [E]</span>";
+                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 4px 8px; border-radius: 3px; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {weapons[i]} [E]</span><br/>";
                 else
-                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 4px;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span>";
+                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span><br/>";
             }
         }
         else if (menuId == 3)
         {
-            html += "<span style='color: #55FFFF; font-size: 11px; display: block; text-align: center; margin-bottom: 6px;'>GŁOSOWANIE: ONLY HEADSHOT</span>";
+            html += "<span style='color: #55FFFF; font-size: 11px; display: block; text-align: center; margin-bottom: 6px;'>GŁOSOWANIE: ONLY HEADSHOT</span><br/>";
             string[] voteOptions = { "TAK (Włącz Only HS)", "NIE (Tryb Normalny)" };
             for (int i = 0; i < voteOptions.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 3px 6px; border-radius: 3px; display: block; margin-bottom: 4px;'>&gt; {i + 1}. {voteOptions[i]} [E]</span>";
+                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 4px 8px; border-radius: 3px; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {voteOptions[i]} [E]</span><br/>";
                 else
-                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 4px;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span>";
+                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span><br/>";
             }
         }
 
-        html += "<br/><div style='border-top: 1px solid rgba(255,255,255,0.15); padding-top: 6px; text-align: center; font-size: 10px; color: #888;'>";
+        html += "<div style='border-top: 1px solid rgba(255,255,255,0.15); padding-top: 6px; text-align: center; font-size: 10px; color: #888;'>";
         html += "<b style='color:#DDD;'>[W]</b> GÓRA &nbsp;|&nbsp; <b style='color:#DDD;'>[S]</b> DÓŁ &nbsp;|&nbsp; <b style='color:#FF5555;'>[E]</b> WYBIERZ";
         html += "</div>";
 
