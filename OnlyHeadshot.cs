@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.19.0";
+    public override string ModuleVersion => "2.20.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
@@ -178,10 +178,12 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        string html = "<div style='background-color: rgba(18, 18, 20, 0.95); padding: 12px; border-radius: 6px; width: 420px; font-family: monospace; color: #E0E0E0; text-align: left; border: 1px solid rgba(255,255,255,0.2);'>";
+        // Nowoczesne okienko z wyraźną, kolorową ramką i dopasowaną szerokością
+        string html = "<div style='background-color: rgba(18, 18, 20, 0.95); padding: 12px; border-radius: 6px; width: 420px; font-family: monospace; color: #E0E0E0; text-align: left; border: 2px solid #FF5555;'>";
         
-        html += "<div style='text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 5px; margin-bottom: 6px;'>";
-        html += "<span style='color: #FF5555; font-size: 14px; font-weight: bold;'>1337HUB AIM DM</span>";
+        // Kolorowy nagłówek
+        html += "<div style='text-align: center; border-bottom: 1px solid rgba(255,85,85,0.4); padding-bottom: 5px; margin-bottom: 8px;'>";
+        html += "<span style='color: #FF5555; font-size: 15px; font-weight: bold;'>⚡ 1337HUB AIM DM ⚡</span>";
         html += "</div><br/>";
 
         if (menuId == 1)
@@ -190,9 +192,9 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < options.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 4px 8px; border-radius: 3px; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {options[i]} [E]</span><br/>";
+                    html += $"<span style='background-color: rgba(255, 85, 85, 0.3); color: #FF9999; font-weight: bold; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #FF5555; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {options[i]} <span style='color: #FFF;'>[E]</span></span><br/>";
                 else
-                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span><br/>";
+                    html += $"<span style='color: #CCCCCC; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span><br/>";
             }
         }
         else if (menuId == 2)
@@ -201,26 +203,27 @@ public class OnlyHeadshot : BasePlugin
             for (int i = 0; i < weapons.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 4px 8px; border-radius: 3px; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {weapons[i]} [E]</span><br/>";
+                    html += $"<span style='background-color: rgba(255, 85, 85, 0.3); color: #FF9999; font-weight: bold; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #FF5555; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {weapons[i]} <span style='color: #FFF;'>[E]</span></span><br/>";
                 else
-                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span><br/>";
+                    html += $"<span style='color: #CCCCCC; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span><br/>";
             }
         }
         else if (menuId == 3)
         {
-            html += "<span style='color: #55FFFF; font-size: 11px; display: block; text-align: center; margin-bottom: 6px;'>GŁOSOWANIE: ONLY HEADSHOT</span><br/>";
+            html += "<span style='color: #55FFFF; font-size: 11px; font-weight: bold; display: block; text-align: center; margin-bottom: 6px;'>GŁOSOWANIE: ONLY HEADSHOT</span><br/>";
             string[] voteOptions = { "TAK (Włącz Only HS)", "NIE (Tryb Normalny)" };
             for (int i = 0; i < voteOptions.Length; i++)
             {
                 if (i == selectedIndex)
-                    html += $"<span style='background-color: rgba(255, 85, 85, 0.25); color: #FF5555; font-weight: bold; padding: 4px 8px; border-radius: 3px; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {voteOptions[i]} [E]</span><br/>";
+                    html += $"<span style='background-color: rgba(85, 255, 255, 0.2); color: #88FFFF; font-weight: bold; padding: 4px 8px; border-radius: 4px; border-left: 3px solid #55FFFF; display: block; margin-bottom: 6px;'>&gt; {i + 1}. {voteOptions[i]} <span style='color: #FFF;'>[E]</span></span><br/>";
                 else
-                    html += $"<span style='color: #AAAAAA; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span><br/>";
+                    html += $"<span style='color: #CCCCCC; display: block; margin-bottom: 6px;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span><br/>";
             }
         }
 
-        html += "<div style='border-top: 1px solid rgba(255,255,255,0.15); padding-top: 6px; text-align: center; font-size: 10px; color: #888;'>";
-        html += "<b style='color:#DDD;'>[W]</b> GÓRA &nbsp;|&nbsp; <b style='color:#DDD;'>[S]</b> DÓŁ &nbsp;|&nbsp; <b style='color:#FF5555;'>[E]</b> WYBIERZ";
+        // Kolorowy, czytelny panel sterowania na dole
+        html += "<div style='border-top: 1px solid rgba(255,255,255,0.15); padding-top: 6px; text-align: center; font-size: 10px; color: #AAA;'>";
+        html += "<b style='color:#FF5555;'>[W]</b> GÓRA &nbsp;|&nbsp; <b style='color:#FF5555;'>[S]</b> DÓŁ &nbsp;|&nbsp; <b style='color:#55FF55;'>[E]</b> WYBIERZ";
         html += "</div>";
 
         html += "</div>";
