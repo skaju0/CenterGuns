@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Native WASD Menu";
-    public override string ModuleVersion => "2.13.0";
+    public override string ModuleVersion => "2.13.1";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -180,7 +180,6 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        // Nowoczesny, przejrzysty design z wyrazistymi kolorami i mocno powiększonymi "przyciskami" sterowania na dole
         string html = "<div style='background: linear-gradient(135deg, rgba(15,15,15,0.95), rgba(35,35,35,0.95)); padding: 14px; border-radius: 8px; width: 350px; font-family: monospace; color: white; text-align: left; border: 2px solid #F39C12; box-shadow: 0 0 15px rgba(0,0,0,0.8);'>" +
                       "<div style='text-align: center; border-bottom: 2px solid #F39C12; padding-bottom: 6px; margin-bottom: 8px;'>" +
                       "<span style='color: #F39C12; font-size: 16px; font-weight: bold;'>[ 1337HUB.PL ]</span><br>" +
@@ -227,7 +226,6 @@ public class OnlyHeadshot : BasePlugin
             }
         }
 
-        // Duży, czytelny panel sterowania na samym dole z obramowanymi "przyciskami" klawiatury
         html += "<br><div style='border-top: 1px dashed #666; padding-top: 8px; text-align: center;'>" +
                 "<span style='background-color: #333; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>W</span> <span style='color: #AAA; font-size: 11px;'>GÓRA</span> &nbsp;&nbsp;" +
                 "<span style='background-color: #333; color: #FFF; padding: 2px 6px; border-radius: 3px; font-weight: bold;'>S</span> <span style='color: #AAA; font-size: 11px;'>DÓŁ</span> &nbsp;&nbsp;" +
@@ -453,7 +451,7 @@ public class OnlyHeadshot : BasePlugin
             _isOnlyHs = true;
             Server.PrintToChatAll($"{Prefix} Wynik: \x06TAK\x01 ({_voteYes} vs {_voteNo}). Włączono \x0C[ONLY HEADSHOT]\x01!");
             
-            _hsReminderTimer?.Link();
+            _hsReminderTimer?.Kill();
             _hsReminderTimer = AddTimer(60.0f, () =>
             {
                 if (_isOnlyHs)
