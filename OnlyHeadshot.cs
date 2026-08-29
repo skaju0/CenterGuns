@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Native WASD Menu";
-    public override string ModuleVersion => "2.13.1";
+    public override string ModuleVersion => "2.14.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -42,8 +42,17 @@ public class OnlyHeadshot : BasePlugin
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
-            Server.ExecuteCommand("bot_quota_mode fill");
-            Server.ExecuteCommand("bot_quota 10");
+            
+            // Poprawione, bezpieczne wymuszenie konfiguracji botów po załadowaniu mapy z Workshopu
+            AddTimer(3.0f, () =>
+            {
+                Server.ExecuteCommand("bot_kick");
+                Server.ExecuteCommand("bot_quota_mode fill");
+                Server.ExecuteCommand("bot_quota 10");
+                Server.ExecuteCommand("bot_difficulty 2");
+                Server.ExecuteCommand("bot_join_after_player 0");
+                Server.ExecuteCommand("bot_autovacate 1");
+            });
         });
 
         RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
