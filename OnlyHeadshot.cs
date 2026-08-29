@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.16.1";
+    public override string ModuleVersion => "2.17.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
@@ -43,9 +43,9 @@ public class OnlyHeadshot : BasePlugin
         {
             AddTimer(2.0f, ForceUnfreezeGame);
             
+            // Inicjalizacja komend botów silnika oraz uruchomienie pętli zarządzającej
             AddTimer(4.0f, () =>
             {
-                Server.ExecuteCommand("bot_kick");
                 Server.ExecuteCommand("bot_quota_mode fill");
                 Server.ExecuteCommand("bot_quota 10");
                 Server.ExecuteCommand("bot_difficulty 2");
@@ -58,9 +58,36 @@ public class OnlyHeadshot : BasePlugin
 
         RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
 
+        // Cykliczny timer pilnujący stanu botów co 2 sekundy
+        AddTimer(2.0f, CheckAndManageBots, TimerFlags.REPEAT);
+
         if (hotReload)
         {
             ForceUnfreezeGame();
+        }
+    }
+
+    private void CheckAndManageBots()
+    {
+        var players = Utilities.GetPlayers();
+        int realPlayers = players.Count(p => p.IsValid && !p.IsBot && p.TeamNum > 1);
+        int currentBots = players.Count(p => p.IsValid && p.IsBot && p.TeamNum > 1);
+        
+        // Docelowa liczba botów do 10 (zmniejsza się, gdy wchodzą prawdziwi gracze, zachowując limit slotów)
+        int targetBots = Math.Max(0, 10 - realPlayers);
+
+        if (currentBots < targetBots)
+        {
+            Server.ExecuteCommand("bot_add");
+        }
+        else if (currentBots > targetBots)
+        {
+            // Usuń nadmiarowego bota
+            var botToKick = players.FirstOrDefault(p => p.IsValid && p.IsBot);
+            if (botToKick != null)
+            {
+                Server.ExecuteCommand($"kickid {botToKick.UserId}");
+            }
         }
     }
 
@@ -190,7 +217,6 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        // Użycie wymuszonych znaczników <br/> oraz elementów block zapewnia, że każda opcja ma 100% szerokości i ląduje w nowej linii
         string html = "<div style='background-color: rgba(18, 18, 20, 0.95); padding: 12px; border-radius: 6px; width: 340px; font-family: monospace; color: #E0E0E0; text-align: left; border: 1px solid rgba(255,255,255,0.2);'>";
         
         html += "<div style='text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 5px; margin-bottom: 6px;'>";
