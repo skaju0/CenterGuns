@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.18.0";
+    public override string ModuleVersion => "2.19.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
@@ -42,49 +42,13 @@ public class OnlyHeadshot : BasePlugin
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
-            
-            // Agresywne wymuszenie odblokowania i dodania botów na mapach z Workshopu
-            AddTimer(5.0f, () =>
-            {
-                Server.ExecuteCommand("mp_limitteams 0");
-                Server.ExecuteCommand("mp_autoteambalance 0");
-                Server.ExecuteCommand("bot_kick");
-                Server.ExecuteCommand("bot_quota_mode fill");
-                Server.ExecuteCommand("bot_quota 10");
-                Server.ExecuteCommand("bot_difficulty 2");
-                Server.ExecuteCommand("bot_join_after_player 0");
-                Server.ExecuteCommand("bot_autovacate 1");
-                
-                // Wstrzyknięcie botów po starcie
-                for (int i = 0; i < 6; i++)
-                {
-                    Server.ExecuteCommand("bot_add");
-                }
-            });
         });
 
         RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
 
-        // Pętla zarządzająca botami co 2 sekundy
-        AddTimer(2.0f, CheckAndManageBots, TimerFlags.REPEAT);
-
         if (hotReload)
         {
             ForceUnfreezeGame();
-        }
-    }
-
-    private void CheckAndManageBots()
-    {
-        var players = Utilities.GetPlayers();
-        int realPlayers = players.Count(p => p.IsValid && !p.IsBot && p.TeamNum > 1);
-        int currentBots = players.Count(p => p.IsValid && p.IsBot && p.TeamNum > 1);
-        
-        int targetBots = Math.Max(0, 10 - realPlayers);
-
-        if (currentBots < targetBots)
-        {
-            Server.ExecuteCommand("bot_add");
         }
     }
 
@@ -214,7 +178,6 @@ public class OnlyHeadshot : BasePlugin
 
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
-        // Zwiększono szerokość kontenera do 420px, aby długie opcje miały miejsce i nie zawijały się w niespodziewanych miejscach
         string html = "<div style='background-color: rgba(18, 18, 20, 0.95); padding: 12px; border-radius: 6px; width: 420px; font-family: monospace; color: #E0E0E0; text-align: left; border: 1px solid rgba(255,255,255,0.2);'>";
         
         html += "<div style='text-align: center; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 5px; margin-bottom: 6px;'>";
