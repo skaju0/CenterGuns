@@ -4,14 +4,13 @@ using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
-using CS2MenuManager.API.Menu;
 
 namespace OnlyHeadshot;
 
 public class OnlyHeadshot : BasePlugin
 {
-    public override string ModuleName => "1337HUB DM + WASD Menu";
-    public override string ModuleVersion => "2.7.0";
+    public override string ModuleName => "1337HUB DM + Native WASD Menu";
+    public override string ModuleVersion => "2.9.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -25,6 +24,11 @@ public class OnlyHeadshot : BasePlugin
     private int _voteNo = 0;
     private readonly HashSet<ulong> _votedPlayers = new();
     private readonly Dictionary<ulong, (string primary, string secondary)> _playerWeapons = new();
+    
+    // Przechowuje stan menu gracza: (ID menu, aktualnie zaznaczona pozycja, czas ostatniego wciśnięcia klawisza dla płynności)
+    private readonly Dictionary<ulong, (int menuId, int selectedIndex)> _playerMenus = new();
+    private readonly Dictionary<ulong, DateTime> _lastButtonPress = new();
+
     private CounterStrikeSharp.API.Modules.Timers.Timer? _hsReminderTimer;
 
     public override void Load(bool hotReload)
@@ -34,6 +38,7 @@ public class OnlyHeadshot : BasePlugin
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
         RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
+        RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
 
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
@@ -41,6 +46,9 @@ public class OnlyHeadshot : BasePlugin
             Server.ExecuteCommand("bot_quota_mode fill");
             Server.ExecuteCommand("bot_quota 10");
         });
+
+        // Nasłuchiwanie ticków serwera do renderowania i obsługi klawiszy W, S, E
+        RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
 
         if (hotReload)
         {
@@ -71,6 +79,17 @@ public class OnlyHeadshot : BasePlugin
         return HookResult.Continue;
     }
 
+    private HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
+    {
+        var player = @event.Userid;
+        if (player != null)
+        {
+            _playerMenus.Remove(player.SteamID);
+            _lastButtonPress.Remove(player.SteamID);
+        }
+        return HookResult.Continue;
+    }
+
     private void AssignBalancedTeam(CCSPlayerController player)
     {
         if (!player.IsValid || player.TeamNum > 1) return;
@@ -93,7 +112,7 @@ public class OnlyHeadshot : BasePlugin
     }
 
     // ==========================================
-    // OFICJALNE WASD MENU Z CS2MenuManager
+    // KOMENDY OTWIERAJĄCE MENU
     // ==========================================
 
     [ConsoleCommand("css_menu", "Otwórz główne menu serwera")]
@@ -102,50 +121,139 @@ public class OnlyHeadshot : BasePlugin
     public void OnMenuCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
-
-        WasdMenu menu = new("DeathMatch", this);
-
-        menu.AddItem("Mode: only HS", (p, opt) => 
-        {
-            if (_voteInProgress)
-            {
-                p.PrintToChat($"{Prefix} Głosowanie już trwa!");
-            }
-            else
-            {
-                _voteHasBeenExecuted = false;
-                StartOnlyHsMenuVote();
-            }
-        });
-
-        menu.AddItem("Wybór Broni (AK/M4/AWP)", (p, opt) => OpenGunsWasdMenu(p));
-        
-        menu.AddItem("Reset Statystyk (!rs)", (p, opt) => 
-        {
-            p.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
-        });
-
-        menu.Display(player);
+        // Otwórz Menu Główne (ID 1), zaznaczona pozycja 0
+        _playerMenus[player.SteamID] = (1, 0);
     }
 
-    private void OpenGunsWasdMenu(CCSPlayerController player)
+    // ==========================================
+    // SYSTEM OBSŁUGI WASD W CZASIE RZECZYWISTYM
+    // ==========================================
+
+    private void OnTickMenuSystem()
     {
-        if (!player.IsValid) return;
+        foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+        {
+            if (!_playerMenus.ContainsKey(player.SteamID)) continue;
 
-        WasdMenu gunsMenu = new("Wybierz zestaw broni", this);
-        
-        gunsMenu.AddItem("AK-47 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle"));
-        gunsMenu.AddItem("M4A1-S + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle"));
-        gunsMenu.AddItem("M4A4 + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle"));
-        gunsMenu.AddItem("AWP + Deagle", (p, opt) => SetPlayerLoadoutAndClose(p, "weapon_awp", "weapon_deagle", "AWP + Deagle"));
+            var pawn = player.PlayerPawn.Value;
+            if (pawn == null || !pawn.IsValid) continue;
 
-        gunsMenu.Display(player);
+            var (menuId, selectedIndex) = _playerMenus[player.SteamID];
+            var buttons = player.Buttons;
+
+            // Zabezpieczenie przed zbyt szybkim przewijaniem (spamowaniem klawiszy)
+            bool canPress = !_lastButtonPress.ContainsKey(player.SteamID) || 
+                            (DateTime.Now - _lastButtonPress[player.SteamID]).TotalMilliseconds > 200;
+
+            int maxOptions = menuId == 1 ? 3 : 5; // Menu główne ma 3 opcje, menu broni ma 5 opcji
+
+            if (canPress)
+            {
+                // Wciśnięcie W (Ruch do przodu / Góra)
+                if ((buttons & PlayerButtons.Forward) != 0)
+                {
+                    selectedIndex--;
+                    if (selectedIndex < 0) selectedIndex = maxOptions - 1;
+                    _playerMenus[player.SteamID] = (menuId, selectedIndex);
+                    _lastButtonPress[player.SteamID] = DateTime.Now;
+                }
+                // Wciśnięcie S (Ruch do tyłu / Dół)
+                else if ((buttons & PlayerButtons.Back) != 0)
+                {
+                    selectedIndex++;
+                    if (selectedIndex >= maxOptions) selectedIndex = 0;
+                    _playerMenus[player.SteamID] = (menuId, selectedIndex);
+                    _lastButtonPress[player.SteamID] = DateTime.Now;
+                }
+                // Wciśnięcie E (Użyj / Zatwierdź)
+                else if ((buttons & PlayerButtons.Use) != 0)
+                {
+                    ExecuteMenuAction(player, menuId, selectedIndex);
+                    _lastButtonPress[player.SteamID] = DateTime.Now;
+                    continue;
+                }
+            }
+
+            // Rysowanie menu na środku ekranu (HTML)
+            string html = RenderMenuHtml(menuId, selectedIndex);
+            player.PrintToCenterHtml(html);
+        }
+    }
+
+    private string RenderMenuHtml(int menuId, int selectedIndex)
+    {
+        string html = "<div style='background-color: rgba(0,0,0,0.85); padding: 12px; border-radius: 6px; width: 320px; font-family: monospace; color: white; text-align: left; border: 1px solid #444;'>" +
+                      "<b style='color: #FFCC00; display: block; text-align: center; font-size: 14px;'>DeathMatch</b><br>";
+
+        if (menuId == 1) // Główne Menu
+        {
+            string[] options = { "Mode: only HS", "Wybór Broni (AK/M4/AWP)", "Reset Statystyk (!rs)" };
+            for (int i = 0; i < options.Length; i++)
+            {
+                if (i == selectedIndex)
+                    html += $"<span style='color: #00FF00; font-weight: bold;'>&gt; {i + 1}. {options[i]} [E]</span><br>";
+                else
+                    html += $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {options[i]}</span><br>";
+            }
+        }
+        else if (menuId == 2) // Menu Wyboru Broni
+        {
+            string[] weapons = { "AK-47 + Deagle", "M4A1-S + Deagle", "M4A4 + Deagle", "AWP + Deagle", "Powrót do menu" };
+            for (int i = 0; i < weapons.Length; i++)
+            {
+                if (i == selectedIndex)
+                    html += $"<span style='color: #00FF00; font-weight: bold;'>&gt; {i + 1}. {weapons[i]} [E]</span><br>";
+                else
+                    html += $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span><br>";
+            }
+        }
+
+        html += "<br><hr style='border-color: #555; margin: 4px 0;'><div style='text-align: center; font-size: 11px; color: #888;'>[W] Góra | [S] Dół | [E] Wybierz</div></div>";
+        return html;
+    }
+
+    private void ExecuteMenuAction(CCSPlayerController player, int menuId, int selectedIndex)
+    {
+        if (menuId == 1) // Akcje z menu głównego
+        {
+            if (selectedIndex == 0) // Only HS
+            {
+                if (_voteInProgress)
+                {
+                    player.PrintToChat($"{Prefix} Głosowanie już trwa!");
+                }
+                else
+                {
+                    _voteHasBeenExecuted = false;
+                    StartOnlyHsMenuVote();
+                }
+                _playerMenus.Remove(player.SteamID);
+            }
+            else if (selectedIndex == 1) // Otwórz podmenu broni
+            {
+                _playerMenus[player.SteamID] = (2, 0);
+            }
+            else if (selectedIndex == 2) // Reset Statystyk
+            {
+                player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
+                _playerMenus.Remove(player.SteamID);
+            }
+        }
+        else if (menuId == 2) // Akcje z menu broni
+        {
+            if (selectedIndex == 0) SetPlayerLoadoutAndClose(player, "weapon_ak47", "weapon_deagle", "AK-47 + Deagle");
+            else if (selectedIndex == 1) SetPlayerLoadoutAndClose(player, "weapon_m4a1_silencer", "weapon_deagle", "M4A1-S + Deagle");
+            else if (selectedIndex == 2) SetPlayerLoadoutAndClose(player, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle");
+            else if (selectedIndex == 3) SetPlayerLoadoutAndClose(player, "weapon_awp", "weapon_deagle", "AWP + Deagle");
+            else if (selectedIndex == 4) _playerMenus[player.SteamID] = (1, 0); // Powrót
+        }
     }
 
     private void SetPlayerLoadoutAndClose(CCSPlayerController player, string primary, string secondary, string name)
     {
         _playerWeapons[player.SteamID] = (primary, secondary);
         player.PrintToChat($"{Prefix} Wybrano zestaw: \x06{name}\x01. Otrzymasz go przy następnym spawnie.");
+        _playerMenus.Remove(player.SteamID);
     }
 
     private void GivePlayerLoadout(CCSPlayerController player)
@@ -261,32 +369,7 @@ public class OnlyHeadshot : BasePlugin
         _votedPlayers.Clear();
 
         Server.PrintToChatAll($"{Prefix} Rozpoczęto głosowanie na tryb \x0C[ONLY HEADSHOT]\x01!");
-
-        foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
-        {
-            WasdMenu voteMenu = new("Czy wlaczyc ONLY HEADSHOT?", this);
-            voteMenu.AddItem("TAK (Only Headshot)", (p, opt) => ProcessVote(p, true));
-            voteMenu.AddItem("NIE (Normalne obrazenia)", (p, opt) => ProcessVote(p, false));
-            voteMenu.Display(player);
-        }
-
         AddTimer(15.0f, FinishVote);
-    }
-
-    private void ProcessVote(CCSPlayerController player, bool vote)
-    {
-        if (!player.IsValid || !_voteInProgress) return;
-
-        if (_votedPlayers.Contains(player.SteamID))
-        {
-            player.PrintToChat($"{Prefix} Już oddałeś głos!");
-            return;
-        }
-
-        _votedPlayers.Add(player.SteamID);
-        if (vote) _voteYes++; else _voteNo++;
-
-        player.PrintToChat($"{Prefix} Oddano głos na: {(vote ? "\x06TAK\x01" : "\x02NIE\x01")}");
     }
 
     private void FinishVote()
