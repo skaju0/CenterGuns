@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.21.0";
+    public override string ModuleVersion => "2.23.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
@@ -22,6 +22,11 @@ public class OnlyHeadshot : BasePlugin
     private bool _voteHasBeenExecuted = false;
     private int _voteYes = 0;
     private int _voteNo = 0;
+    
+    // Cooldown głosowania (10 minut)
+    private DateTime _lastVoteTime = DateTime.MinValue;
+    private readonly TimeSpan VoteCooldown = TimeSpan.FromMinutes(10);
+
     private readonly HashSet<ulong> _votedPlayers = new();
     private readonly Dictionary<ulong, (string primary, string secondary)> _playerWeapons = new();
     
@@ -42,23 +47,6 @@ public class OnlyHeadshot : BasePlugin
         RegisterListener<Listeners.OnMapStart>((mapName) =>
         {
             AddTimer(2.0f, ForceUnfreezeGame);
-            
-            // Wymuszenie komend botów oraz automatyczne dodanie botów po załadowaniu mapy z Workshopu
-            AddTimer(6.0f, () =>
-            {
-                Server.ExecuteCommand("mp_limitteams 0");
-                Server.ExecuteCommand("mp_autoteambalance 0");
-                Server.ExecuteCommand("bot_quota_mode fill");
-                Server.ExecuteCommand("bot_quota 5");
-                Server.ExecuteCommand("bot_join_after_player 0");
-                Server.ExecuteCommand("bot_autovacate 0");
-                
-                // Pętla dodająca boty bezpośrednio do gry
-                for (int i = 0; i < 5; i++)
-                {
-                    Server.ExecuteCommand("bot_add");
-                }
-            });
         });
 
         RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
@@ -81,11 +69,20 @@ public class OnlyHeadshot : BasePlugin
         var player = @event.Userid;
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-        AddTimer(1.0f, () =>
+        AddTimer(1.5f, () =>
         {
-            if (player.IsValid && player.TeamNum <= 1)
+            if (player.IsValid)
             {
-                AssignBalancedTeam(player);
+                Server.ExecuteCommand("mp_limitteams 0");
+                Server.ExecuteCommand("mp_autoteambalance 0");
+                Server.ExecuteCommand("bot_quota_mode fill");
+                Server.ExecuteCommand("bot_quota 5");
+                Server.ExecuteCommand("bot_join_after_player 0");
+
+                if (player.TeamNum <= 1)
+                {
+                    AssignBalancedTeam(player);
+                }
             }
         });
 
@@ -250,16 +247,8 @@ public class OnlyHeadshot : BasePlugin
         {
             if (selectedIndex == 0)
             {
-                if (_voteInProgress)
-                {
-                    player.PrintToChat($"{Prefix} Głosowanie już trwa!");
-                    _playerMenus.Remove(player.SteamID);
-                }
-                else
-                {
-                    _voteHasBeenExecuted = false;
-                    StartOnlyHsMenuVote();
-                }
+                TryStartVote(player);
+                _playerMenus.Remove(player.SteamID);
             }
             else if (selectedIndex == 1)
             {
@@ -338,10 +327,22 @@ public class OnlyHeadshot : BasePlugin
     public void OnVoteCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
+        TryStartVote(player);
+    }
 
+    private void TryStartVote(CCSPlayerController player)
+    {
         if (_voteInProgress)
         {
-            player.PrintToChat($"{Prefix} Głosowanie już trwa!");
+            player.PrintToChat($"{Prefix} Głosowanie jest już w toku!");
+            return;
+        }
+
+        var timePassed = DateTime.Now - _lastVoteTime;
+        if (timePassed < VoteCooldown)
+        {
+            var remaining = VoteCooldown - timePassed;
+            player.PrintToChat($"{Prefix} Głosowanie jest zablokowane. Następne będzie dostępne za \x0C{remaining.Minutes:D2} min {remaining.Seconds:D2} sek\x01.");
             return;
         }
 
@@ -361,7 +362,11 @@ public class OnlyHeadshot : BasePlugin
         Server.ExecuteCommand("mp_respawn_on_death_ct 1");
         Server.ExecuteCommand("mp_respawn_on_death_t 1");
 
-        AddTimer(3.0f, StartOnlyHsMenuVote);
+        // Automatyczne uruchomienie głosowania na starcie z uwzględnieniem cooldownu
+        if (DateTime.Now - _lastVoteTime >= VoteCooldown)
+        {
+            AddTimer(3.0f, StartOnlyHsMenuVote);
+        }
 
         return HookResult.Continue;
     }
@@ -387,7 +392,7 @@ public class OnlyHeadshot : BasePlugin
 
         Server.NextFrame(() => GivePlayerLoadout(player));
 
-        if (!_voteInProgress && !_voteHasBeenExecuted)
+        if (!_voteInProgress && !_voteHasBeenExecuted && (DateTime.Now - _lastVoteTime >= VoteCooldown))
         {
             AddTimer(2.0f, StartOnlyHsMenuVote);
         }
@@ -414,8 +419,12 @@ public class OnlyHeadshot : BasePlugin
     {
         if (_voteInProgress || _voteHasBeenExecuted) return;
 
+        // Sprawdzenie cooldownu przed automatycznym wystartowaniem
+        if (DateTime.Now - _lastVoteTime < VoteCooldown) return;
+
         _voteInProgress = true;
         _voteHasBeenExecuted = true;
+        _lastVoteTime = DateTime.Now; // Zapisanie czasu rozpoczęcia głosowania
         _voteYes = 0;
         _voteNo = 0;
         _votedPlayers.Clear();
@@ -468,7 +477,7 @@ public class OnlyHeadshot : BasePlugin
             _hsReminderTimer = AddTimer(60.0f, () =>
             {
                 if (_isOnlyHs)
-            {
+                {
                     Server.PrintToChatAll($"{Prefix} \x0C[PRZYPOMNIENIE]\x01 Aktywny tryb \x06ONLY HEADSHOT\x01!");
                 }
             }, TimerFlags.REPEAT);
