@@ -10,12 +10,16 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.23.0";
+    public override string ModuleVersion => "2.24.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
     private const float RespawnDelay = 1.0f;
     private const float ProtectionDuration = 2.0f;
+
+    // Ścieżki do dźwięków (standardowe lub customowe pliki na serwerze FastDL)
+    private const string SoundPanHit = "sounds/physics/metal/metal_solid_impact_bullet1.vsnd"; // Dźwięk uderzenia w garnek/metal
+    private const string SoundQuakeHs = "sounds/player/vo/anouncer/headshot.vsnd"; // Przykładowy dźwięk Quake Headshot
 
     private bool _isOnlyHs = false;
     private bool _voteInProgress = false;
@@ -23,7 +27,6 @@ public class OnlyHeadshot : BasePlugin
     private int _voteYes = 0;
     private int _voteNo = 0;
     
-    // Cooldown głosowania (10 minut)
     private DateTime _lastVoteTime = DateTime.MinValue;
     private readonly TimeSpan VoteCooldown = TimeSpan.FromMinutes(10);
 
@@ -362,7 +365,6 @@ public class OnlyHeadshot : BasePlugin
         Server.ExecuteCommand("mp_respawn_on_death_ct 1");
         Server.ExecuteCommand("mp_respawn_on_death_t 1");
 
-        // Automatyczne uruchomienie głosowania na starcie z uwzględnieniem cooldownu
         if (DateTime.Now - _lastVoteTime >= VoteCooldown)
         {
             AddTimer(3.0f, StartOnlyHsMenuVote);
@@ -419,12 +421,11 @@ public class OnlyHeadshot : BasePlugin
     {
         if (_voteInProgress || _voteHasBeenExecuted) return;
 
-        // Sprawdzenie cooldownu przed automatycznym wystartowaniem
         if (DateTime.Now - _lastVoteTime < VoteCooldown) return;
 
         _voteInProgress = true;
         _voteHasBeenExecuted = true;
-        _lastVoteTime = DateTime.Now; // Zapisanie czasu rozpoczęcia głosowania
+        _lastVoteTime = DateTime.Now;
         _voteYes = 0;
         _voteNo = 0;
         _votedPlayers.Clear();
@@ -491,10 +492,20 @@ public class OnlyHeadshot : BasePlugin
 
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
     {
-        if (!_isOnlyHs) return HookResult.Continue;
-
         var victim = @event.Userid;
         var attacker = @event.Attacker;
+
+        // Obsługa dźwięku uderzenia w głowę (Headshot / garnek)
+        if (attacker != null && attacker.IsValid && !attacker.IsBot && @event.Hitgroup == 1)
+        {
+            // Odtworzenie dźwięku uderzenia metalu (garnek) dla strzelca
+            attacker.ExecuteClientCommand($"play {SoundPanHit}");
+            
+            // Odtworzenie dźwięku Quake Headshot
+            attacker.ExecuteClientCommand($"play {SoundQuakeHs}");
+        }
+
+        if (!_isOnlyHs) return HookResult.Continue;
 
         if (@event.Hitgroup != 1 && victim != null && victim.IsValid && victim.PlayerPawn.Value != null)
         {
