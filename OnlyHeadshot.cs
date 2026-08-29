@@ -10,7 +10,7 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB DM + Native WASD Menu";
-    public override string ModuleVersion => "2.9.0";
+    public override string ModuleVersion => "2.11.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB.PL]\x01";
@@ -25,7 +25,8 @@ public class OnlyHeadshot : BasePlugin
     private readonly HashSet<ulong> _votedPlayers = new();
     private readonly Dictionary<ulong, (string primary, string secondary)> _playerWeapons = new();
     
-    // Przechowuje stan menu gracza: (ID menu, aktualnie zaznaczona pozycja, czas ostatniego wciśnięcia klawisza dla płynności)
+    // Stan menu dla gracza: (menuId, selectedIndex)
+    // menuId: 1 = Główne, 2 = Wybór Broni, 3 = Głosowanie na HS
     private readonly Dictionary<ulong, (int menuId, int selectedIndex)> _playerMenus = new();
     private readonly Dictionary<ulong, DateTime> _lastButtonPress = new();
 
@@ -47,7 +48,6 @@ public class OnlyHeadshot : BasePlugin
             Server.ExecuteCommand("bot_quota 10");
         });
 
-        // Nasłuchiwanie ticków serwera do renderowania i obsługi klawiszy W, S, E
         RegisterListener<Listeners.OnTick>(OnTickMenuSystem);
 
         if (hotReload)
@@ -121,7 +121,6 @@ public class OnlyHeadshot : BasePlugin
     public void OnMenuCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
-        // Otwórz Menu Główne (ID 1), zaznaczona pozycja 0
         _playerMenus[player.SteamID] = (1, 0);
     }
 
@@ -133,6 +132,15 @@ public class OnlyHeadshot : BasePlugin
     {
         foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
         {
+            // Jeśli trwa głosowanie, automatycznie przełączamy gracza do menu głosowania, jeśli jeszcze nic nie wybrał
+            if (_voteInProgress && !_votedPlayers.Contains(player.SteamID))
+            {
+                if (!_playerMenus.ContainsKey(player.SteamID) || _playerMenus[player.SteamID].menuId != 3)
+                {
+                    _playerMenus[player.SteamID] = (3, 0);
+                }
+            }
+
             if (!_playerMenus.ContainsKey(player.SteamID)) continue;
 
             var pawn = player.PlayerPawn.Value;
@@ -141,15 +149,19 @@ public class OnlyHeadshot : BasePlugin
             var (menuId, selectedIndex) = _playerMenus[player.SteamID];
             var buttons = player.Buttons;
 
-            // Zabezpieczenie przed zbyt szybkim przewijaniem (spamowaniem klawiszy)
             bool canPress = !_lastButtonPress.ContainsKey(player.SteamID) || 
                             (DateTime.Now - _lastButtonPress[player.SteamID]).TotalMilliseconds > 200;
 
-            int maxOptions = menuId == 1 ? 3 : 5; // Menu główne ma 3 opcje, menu broni ma 5 opcji
+            int maxOptions = menuId switch
+            {
+                1 => 3, // Menu Główne
+                2 => 5, // Menu Broni
+                3 => 2, // Menu Głosowania (TAK / NIE)
+                _ => 3
+            };
 
             if (canPress)
             {
-                // Wciśnięcie W (Ruch do przodu / Góra)
                 if ((buttons & PlayerButtons.Forward) != 0)
                 {
                     selectedIndex--;
@@ -157,7 +169,6 @@ public class OnlyHeadshot : BasePlugin
                     _playerMenus[player.SteamID] = (menuId, selectedIndex);
                     _lastButtonPress[player.SteamID] = DateTime.Now;
                 }
-                // Wciśnięcie S (Ruch do tyłu / Dół)
                 else if ((buttons & PlayerButtons.Back) != 0)
                 {
                     selectedIndex++;
@@ -165,7 +176,6 @@ public class OnlyHeadshot : BasePlugin
                     _playerMenus[player.SteamID] = (menuId, selectedIndex);
                     _lastButtonPress[player.SteamID] = DateTime.Now;
                 }
-                // Wciśnięcie E (Użyj / Zatwierdź)
                 else if ((buttons & PlayerButtons.Use) != 0)
                 {
                     ExecuteMenuAction(player, menuId, selectedIndex);
@@ -174,7 +184,6 @@ public class OnlyHeadshot : BasePlugin
                 }
             }
 
-            // Rysowanie menu na środku ekranu (HTML)
             string html = RenderMenuHtml(menuId, selectedIndex);
             player.PrintToCenterHtml(html);
         }
@@ -183,7 +192,7 @@ public class OnlyHeadshot : BasePlugin
     private string RenderMenuHtml(int menuId, int selectedIndex)
     {
         string html = "<div style='background-color: rgba(0,0,0,0.85); padding: 12px; border-radius: 6px; width: 320px; font-family: monospace; color: white; text-align: left; border: 1px solid #444;'>" +
-                      "<b style='color: #FFCC00; display: block; text-align: center; font-size: 14px;'>DeathMatch</b><br>";
+                      "<b style='color: #FFCC00; display: block; text-align: center; font-size: 14px;'>[1337HUB.PL] DeathMatch</b><br>";
 
         if (menuId == 1) // Główne Menu
         {
@@ -207,6 +216,18 @@ public class OnlyHeadshot : BasePlugin
                     html += $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {weapons[i]}</span><br>";
             }
         }
+        else if (menuId == 3) // Menu Głosowania na HS
+        {
+            html += "<div style='color: #00FFFF; text-align: center; font-size: 12px;'>Trwa głosowanie na Only Headshot!</div><br>";
+            string[] voteOptions = { "TAK (Włącz Only HS)", "NIE (Tryb Normalny)" };
+            for (int i = 0; i < voteOptions.Length; i++)
+            {
+                if (i == selectedIndex)
+                    html += $"<span style='color: #00FF00; font-weight: bold;'>&gt; {i + 1}. {voteOptions[i]} [E]</span><br>";
+                else
+                    html += $"<span style='color: #AAAAAA;'>&nbsp;&nbsp;{i + 1}. {voteOptions[i]}</span><br>";
+            }
+        }
 
         html += "<br><hr style='border-color: #555; margin: 4px 0;'><div style='text-align: center; font-size: 11px; color: #888;'>[W] Góra | [S] Dół | [E] Wybierz</div></div>";
         return html;
@@ -221,21 +242,21 @@ public class OnlyHeadshot : BasePlugin
                 if (_voteInProgress)
                 {
                     player.PrintToChat($"{Prefix} Głosowanie już trwa!");
+                    _playerMenus.Remove(player.SteamID);
                 }
                 else
                 {
                     _voteHasBeenExecuted = false;
                     StartOnlyHsMenuVote();
                 }
-                _playerMenus.Remove(player.SteamID);
             }
             else if (selectedIndex == 1) // Otwórz podmenu broni
             {
                 _playerMenus[player.SteamID] = (2, 0);
             }
-            else if (selectedIndex == 2) // Reset Statystyk
+            else if (selectedIndex == 2) // Reset Statystyk (!rs)
             {
-                player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
+                ResetPlayerScore(player);
                 _playerMenus.Remove(player.SteamID);
             }
         }
@@ -246,6 +267,12 @@ public class OnlyHeadshot : BasePlugin
             else if (selectedIndex == 2) SetPlayerLoadoutAndClose(player, "weapon_m4a1", "weapon_deagle", "M4A4 + Deagle");
             else if (selectedIndex == 3) SetPlayerLoadoutAndClose(player, "weapon_awp", "weapon_deagle", "AWP + Deagle");
             else if (selectedIndex == 4) _playerMenus[player.SteamID] = (1, 0); // Powrót
+        }
+        else if (menuId == 3) // Akcje z menu głosowania
+        {
+            bool voteChoice = (selectedIndex == 0);
+            ProcessVote(player, voteChoice);
+            _playerMenus.Remove(player.SteamID);
         }
     }
 
@@ -278,7 +305,20 @@ public class OnlyHeadshot : BasePlugin
     public void OnResetScoreCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
-        player.PrintToChat($"{Prefix} Twoje statysty zostały zresetowane.");
+        ResetPlayerScore(player);
+    }
+
+    private void ResetPlayerScore(CCSPlayerController player)
+    {
+        if (!player.IsValid) return;
+
+        player.Score = 0;
+        player.Deaths = 0;
+        
+        Utilities.SetStateChanged(player, "CCSPlayerController", "m_iScore");
+        Utilities.SetStateChanged(player, "CCSPlayerController", "m_iDeaths");
+
+        player.PrintToChat($"{Prefix} Twoje statysty zostały pomyślnie zresetowane.");
     }
 
     [ConsoleCommand("css_hs", "Wywołaj głosowanie na OnlyHS")]
@@ -344,7 +384,7 @@ public class OnlyHeadshot : BasePlugin
         if (pawn != null && pawn.IsValid)
         {
             pawn.TakesDamage = false;
-            player.PrintToCenterHtml("<font color='#00FF00'><b>OCHRONA STARTOWA (2s)</b></font>");
+            player.PrintToCenterHtml("<font color='#00FF00'><b>[1337HUB.PL] OCHRONA STARTOWA (2s)</b></font>");
 
             AddTimer(ProtectionDuration, () =>
             {
@@ -369,12 +409,43 @@ public class OnlyHeadshot : BasePlugin
         _votedPlayers.Clear();
 
         Server.PrintToChatAll($"{Prefix} Rozpoczęto głosowanie na tryb \x0C[ONLY HEADSHOT]\x01!");
+        Server.PrintToChatAll($"{Prefix} Otwórz \x0C!menu\x01 lub poczekaj, aby oddać głos!");
+
+        foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+        {
+            _playerMenus[player.SteamID] = (3, 0);
+        }
+
         AddTimer(15.0f, FinishVote);
+    }
+
+    private void ProcessVote(CCSPlayerController player, bool vote)
+    {
+        if (!player.IsValid) return;
+
+        if (_votedPlayers.Contains(player.SteamID))
+        {
+            player.PrintToChat($"{Prefix} Już oddałeś głos!");
+            return;
+        }
+
+        _votedPlayers.Add(player.SteamID);
+        if (vote) _voteYes++; else _voteNo++;
+
+        player.PrintToChat($"{Prefix} Oddano głos na: {(vote ? "\x06TAK\x01" : "\x02NIE\x01")}");
     }
 
     private void FinishVote()
     {
         _voteInProgress = false;
+
+        foreach (var player in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot))
+        {
+            if (_playerMenus.TryGetValue(player.SteamID, out var menu) && menu.menuId == 3)
+            {
+                _playerMenus.Remove(player.SteamID);
+            }
+        }
 
         if (_voteYes > _voteNo)
         {
@@ -413,7 +484,7 @@ public class OnlyHeadshot : BasePlugin
 
             if (attacker != null && attacker.IsValid && !attacker.IsBot)
             {
-                attacker.PrintToCenterHtml("<font color='#FF0000'><b>ONLY HEADSHOT!</b></font>");
+                attacker.PrintToCenterHtml("<font color='#FF0000'><b>[1337HUB.PL] ONLY HEADSHOT!</b></font>");
             }
         }
 
