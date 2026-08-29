@@ -10,16 +10,15 @@ namespace OnlyHeadshot;
 public class OnlyHeadshot : BasePlugin
 {
     public override string ModuleName => "1337HUB AIM DM + Native WASD Menu";
-    public override string ModuleVersion => "2.24.0";
+    public override string ModuleVersion => "2.25.0";
     public override string ModuleAuthor => "1337HUB";
 
     private const string Prefix = " \x0B[1337HUB AIM DM]\x01";
     private const float RespawnDelay = 1.0f;
     private const float ProtectionDuration = 2.0f;
 
-    // Ścieżki do dźwięków (standardowe lub customowe pliki na serwerze FastDL)
-    private const string SoundPanHit = "sounds/physics/metal/metal_solid_impact_bullet1.vsnd"; // Dźwięk uderzenia w garnek/metal
-    private const string SoundQuakeHs = "sounds/player/vo/anouncer/headshot.vsnd"; // Przykładowy dźwięk Quake Headshot
+    // Cichszy, przyjemniejszy dźwięk trafienia w głowę (subtelny klik pancerza/metalu)
+    private const string SoundHeadshot = "sounds/player/kevlar1.vsnd";
 
     private bool _isOnlyHs = false;
     private bool _voteInProgress = false;
@@ -495,14 +494,10 @@ public class OnlyHeadshot : BasePlugin
         var victim = @event.Userid;
         var attacker = @event.Attacker;
 
-        // Obsługa dźwięku uderzenia w głowę (Headshot / garnek)
+        // Subtelny, nierewiący uszu dźwięk trafienia w głowę
         if (attacker != null && attacker.IsValid && !attacker.IsBot && @event.Hitgroup == 1)
         {
-            // Odtworzenie dźwięku uderzenia metalu (garnek) dla strzelca
-            attacker.ExecuteClientCommand($"play {SoundPanHit}");
-            
-            // Odtworzenie dźwięku Quake Headshot
-            attacker.ExecuteClientCommand($"play {SoundQuakeHs}");
+            attacker.ExecuteClientCommand($"play {SoundHeadshot}");
         }
 
         if (!_isOnlyHs) return HookResult.Continue;
